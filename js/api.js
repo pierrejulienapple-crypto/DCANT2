@@ -7,7 +7,7 @@ async function callClaudeAPI(imageBase64, mediaType, corrections) {
   if (DCANT_CONFIG._keyReady) await DCANT_CONFIG._keyReady;
   const apiKey = DCANT_CONFIG.anthropic.key;
   if (!apiKey || apiKey.includes('COLLER') || apiKey === '') {
-    throw new Error('Clé Anthropic manquante — vérifiez les variables d'environnement Vercel.');
+    throw new Error('Clé Anthropic manquante — vérifiez les variables d\'environnement Vercel.');
   }
 
   let learningContext = '';
@@ -35,6 +35,53 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après, sans balise
       "millesime": "2020",
       "prix": 12.50,
       "confiance": { "domaine": 0.95, "cuvee": 0.9, "millesime": 0.8, "prix": 0.99 },
+      "alternatives": { "millesime": ["2019", "2021"] }
+    }
+  ],
+  "nb_total": 1,
+  "avertissement": null
+}
+
+Limite à 100 cuvées maximum. Si ce n'est pas un tarif de vins, retourne { "erreur": "Ce document ne semble pas être un tarif de vins." }`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-5',
+      max_tokens: 8000,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
+          { type: 'text', text: prompt }
+        ]
+      }]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error('Erreur API: ' + err);
+  }
+
+  const data = await response.json();
+  if (!data.content || !data.content[0]) {
+    throw new Error('Réponse API vide ou invalide');
+  }
+  const text = data.content[0].text.trim();
+  const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+  const parsed = JSON.parse(clean);
+  if (!parsed.cuvees || parsed.cuvees.length === 0) {
+    console.error('API response:', text);
+  }
+  return parsed;
+}      "confiance": { "domaine": 0.95, "cuvee": 0.9, "millesime": 0.8, "prix": 0.99 },
       "alternatives": { "millesime": ["2019", "2021"] }
     }
   ],
