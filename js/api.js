@@ -53,7 +53,7 @@ Limite à 100 cuvées maximum. Si ce n'est pas un tarif de vins, retourne { "err
       'anthropic-dangerous-direct-browser-access': 'true'
     },
     body: JSON.stringify({
-      model: 'claude-opus-4-6',
+      model: 'claude-opus-4-5',
       max_tokens: 8000,
       messages: [{
         role: 'user',
@@ -71,7 +71,14 @@ Limite à 100 cuvées maximum. Si ce n'est pas un tarif de vins, retourne { "err
   }
 
   const data = await response.json();
+  if (!data.content || !data.content[0]) {
+    throw new Error('Réponse API vide ou invalide');
+  }
   const text = data.content[0].text.trim();
   const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-  return JSON.parse(clean);
+  const parsed = JSON.parse(clean);
+  if (!parsed.cuvees || parsed.cuvees.length === 0) {
+    console.error('API response:', text);
+  }
+  return parsed;
 }
