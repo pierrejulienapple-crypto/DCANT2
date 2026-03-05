@@ -3,9 +3,11 @@
 // ═══════════════════════════════════════════
 
 async function callClaudeAPI(imageBase64, mediaType, corrections) {
+  // Attendre que la clé soit chargée depuis /api/anthropic-key
+  if (DCANT_CONFIG._keyReady) await DCANT_CONFIG._keyReady;
   const apiKey = DCANT_CONFIG.anthropic.key;
-  if (!apiKey || apiKey.includes('COLLER')) {
-    throw new Error('Clé Anthropic manquante dans config.js');
+  if (!apiKey || apiKey.includes('COLLER') || apiKey === '') {
+    throw new Error('Clé Anthropic manquante — vérifiez les variables d'environnement Vercel.');
   }
 
   let learningContext = '';

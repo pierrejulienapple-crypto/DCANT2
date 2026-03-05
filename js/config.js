@@ -20,8 +20,8 @@ const DCANT_CONFIG = {
   tva: 0.20
 };
 
-// Charge la clé Anthropic au démarrage
-(async () => {
+// Charge la clé Anthropic au démarrage — retourne une promesse attendable
+DCANT_CONFIG._keyReady = (async () => {
   try {
     const r = await fetch('/api/anthropic-key');
     const d = await r.json();
