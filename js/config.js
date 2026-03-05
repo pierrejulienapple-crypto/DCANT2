@@ -9,7 +9,8 @@ const DCANT_CONFIG = {
     key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3cG1sc21nY2t4b29xdGJ3YnBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MDM4NjgsImV4cCI6MjA4ODI3OTg2OH0.h0Rcfc5ISk7MRYzcS9YL6Uy-8sdJxvYpTnpCZheGZFs'
   },
   anthropic: {
-    key: 'COLLER_TA_CLÉ_ANTHROPIC_ICI'
+    key: ' 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
+'
   },
   clarity: {
     id: 'vm9i4i92ay'
