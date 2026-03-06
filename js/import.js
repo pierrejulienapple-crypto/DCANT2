@@ -738,7 +738,7 @@ const Import = (() => {
     const opLabel = { lt:'<', lte:'≤', gt:'>', gte:'≥', eq:'=', contains:'contient' };
     const condTxt = regle?.condition?.champ
       ? `Prix ${opLabel[regle.condition.operateur] || '?'} ${_esc(regle.condition.valeur)} €`
-      : 'Toutes les bouteilles';
+      : '';
 
     // Prix d'achat + charges → coût de revient
     const pa = parseFloat(c.prix) || 0;
@@ -754,8 +754,16 @@ const Import = (() => {
     // PV HT
     const pvht = c.pvht ? fmt(c.pvht) + ' €' : '—';
 
+    // Marge brute
+    const margeE = c.pvht ? (c.pvht - cr) : 0;
+    const margePct = c.pvht && c.pvht > 0 ? (margeE / c.pvht * 100) : 0;
+
     const chargesHtml = totalCharges > 0
       ? `<div class="rd-row"><span class="rd-k">Charges</span><span class="rd-v">+ ${fmt(totalCharges)} €</span></div>`
+      : '';
+
+    const condHtml = condTxt
+      ? `<div class="rd-row rd-cond"><span class="rd-k">Condition</span><span class="rd-v rd-cond-v">${condTxt}</span></div>`
       : '';
 
     const detailTr = document.createElement('tr');
@@ -770,9 +778,14 @@ const Import = (() => {
       </div>
 
       <div class="rd-section">
-        <div class="rd-row rd-cond"><span class="rd-k">Condition</span><span class="rd-v rd-cond-v">${condTxt}</span></div>
+        ${condHtml}
         <div class="rd-row"><span class="rd-k">${modeLabel}</span><span class="rd-v">${modeVal}</span></div>
-        <div class="rd-row rd-pvht"><span class="rd-k">Prix de vente HT</span><span class="rd-v rd-pvht-v">${pvht}</span></div>
+      </div>
+
+      <div class="rd-hero">
+        <div class="rd-hero-label">Prix de vente HT</div>
+        <div class="rd-hero-val">${pvht}</div>
+        <div class="rd-hero-sub">${fmt(c.pvht * 1.2)} € TTC · marge ${fmt(margeE)} € (${margePct.toFixed(1)} %)</div>
       </div>
 
     </div></td>`;
@@ -1179,8 +1192,33 @@ Instructions : "${text}"`;
   function wizConfirmAndCalc() {
     if (!_appliedRegles || !_appliedRegles.length) return;
     _applyRegles(_appliedRegles);
+    // Met à jour le résumé des marges appliquées
+    _updateResCondsTxt();
     _renderResultCard();
     wizGo(4);
+  }
+
+  function _updateResCondsTxt() {
+    const rcv = g('importResCondsTxt');
+    if (!rcv) return;
+    // Résumé basé sur les règles appliquées
+    if (_appliedRegles && _appliedRegles.length) {
+      const opLabel = { lt:'<', lte:'≤', gt:'>', gte:'≥', eq:'=', contains:'contient' };
+      const modeLabel = { euros:'Marge', pct:'Taux', coeff:'Coeff.' };
+      const parts = _appliedRegles.map(r => {
+        let txt = (modeLabel[r.mode] || r.mode) + ' ' + fmt(r.valeur) + (r.mode === 'pct' ? ' %' : r.mode === 'coeff' ? '×' : ' €');
+        if (r.condition?.champ) {
+          txt += ' si prix ' + (opLabel[r.condition.operateur] || '?') + ' ' + r.condition.valeur + ' €';
+        }
+        return txt;
+      });
+      rcv.textContent = parts.join(' · ');
+    } else if (_appliedMode) {
+      const labels = { euros: 'Marge €', pct: 'Taux %', coeff: 'Coefficient' };
+      rcv.textContent = labels[_appliedMode] + (_appliedValue ? ' — ' + _appliedValue : '');
+    } else {
+      rcv.textContent = '—';
+    }
   }
 
   async function interpretInstructions() {
@@ -1426,11 +1464,8 @@ Instructions : "${text}"`;
     await interpretInstructions();
     const result = g('importInstrResult');
     if (result && result.style.display !== 'none') {
-      // Met à jour la carte résultat
-      const rcv = g('importResCondsTxt');
-      if (rcv) rcv.textContent = g('importInstrInput')?.value?.substring(0, 60) || '—';
-      // Applique en masse
       applyAll();
+      _updateResCondsTxt();
       _renderResultCard();
       wizGo(4);
     }
@@ -1438,12 +1473,7 @@ Instructions : "${text}"`;
 
   function wizApplyManuel() {
     applyAll();
-    const modeEl = g('importModeValue');
-    const mode = modeEl?.dataset.mode || 'euros';
-    const val = modeEl?.value;
-    const labels = { euros: 'Marge €', pct: 'Taux %', coeff: 'Coefficient' };
-    const rcv = g('importResCondsTxt');
-    if (rcv) rcv.textContent = labels[mode] + (val ? ' — ' + val : '');
+    _updateResCondsTxt();
     _renderResultCard();
     wizGo(4);
   }
@@ -1452,26 +1482,39 @@ Instructions : "${text}"`;
     const tbody = g('importTbodyResult');
     if (!tbody) return;
 
+    const checkSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`;
+
     tbody.innerHTML = _cuvees.map(c => {
       if (c.pvht !== null) {
-        if (c.saved) return ''; // disparaît une fois sauvegardé
-        const pvHtml = `<strong style="font-size:15px">${fmt(c.pvht)} €</strong><br><span style="font-size:10px;color:var(--dimmer)">${fmt(c.pvht * 1.2)} € TTC</span>`;
-        const checkSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`;
+        if (c.saved) return '';
+        // Sous-titre : cuvée · appellation millésime
+        const parts = [_esc(c.cuvee || ''), c.appellation ? _esc(c.appellation) : '', _esc(c.millesime || '')].filter(Boolean);
+        const sub = parts.join(' · ');
+        // Marge info
+        const margeE = c.pvht - (c.prix || 0);
+        const margePct = c.prix > 0 ? (margeE / c.pvht * 100) : 0;
         return `<tr id="import-res-row-${c.id}">
-          <td class="res-row-detail-cell" onclick="Import.showResDetail(${c.id})" style="cursor:pointer">
-            <strong style="font-size:12px">${_esc(c.domaine || '—')}</strong>
-            <br><span style="font-size:11px;color:var(--dimmer)">${_esc(c.cuvee || '')} ${c.appellation ? '· ' + _esc(c.appellation) : ''} ${_esc(c.millesime || '')}</span>
+          <td class="rc-info" onclick="Import.showResDetail(${c.id})">
+            <div class="rc-domaine">${_esc(c.domaine || '—')}</div>
+            ${sub ? `<div class="rc-sub">${sub}</div>` : ''}
           </td>
-          <td class="res-row-detail-cell" onclick="Import.showResDetail(${c.id})" style="cursor:pointer;color:var(--dim);font-size:12px">${c.prix ? fmt(c.prix) + ' €' : '—'}</td>
-          <td class="res-row-detail-cell" onclick="Import.showResDetail(${c.id})" style="cursor:pointer">${pvHtml}</td>
-          <td><button class="res-save-arrow" onclick="Import.saveLineAndFade(${c.id})" title="Valider et sauvegarder">${checkSvg}</button></td>
+          <td class="rc-achat" onclick="Import.showResDetail(${c.id})">${c.prix ? fmt(c.prix) + ' €' : '—'}</td>
+          <td class="rc-pvht" onclick="Import.showResDetail(${c.id})">
+            <div class="rc-pvht-val">${fmt(c.pvht)} €</div>
+            <div class="rc-pvht-ttc">${fmt(c.pvht * 1.2)} € TTC</div>
+          </td>
+          <td class="rc-action"><button class="res-save-arrow" onclick="Import.saveLineAndFade(${c.id})" title="Valider">${checkSvg}</button></td>
         </tr>`;
       } else {
-        // Pas de PV calculé — propose de dicter une instruction spécifique
+        const parts = [_esc(c.cuvee || ''), c.appellation ? _esc(c.appellation) : '', _esc(c.millesime || '')].filter(Boolean);
+        const sub = parts.join(' · ');
         return `<tr id="import-res-row-${c.id}" class="import-row-uncalc">
-          <td><strong style="font-size:12px">${_esc(c.domaine || '—')}</strong><br><span style="font-size:11px;color:var(--dimmer)">${_esc(c.cuvee || '')} ${c.appellation ? '· ' + _esc(c.appellation) : ''} ${_esc(c.millesime || '')}</span></td>
-          <td style="color:var(--dim);font-size:12px">${c.prix ? fmt(c.prix) + ' €' : '—'}</td>
-          <td colspan="2"><button class="btn sm" style="font-size:11px" onclick="Import.wizGo('3a');setTimeout(()=>{ const ta=g('importInstrInput'); if(ta) ta.value='Pour ${_esc((c.domaine||'').replace(/'/g,"\\'"))} : '; },300)">+ Instruction</button></td>
+          <td class="rc-info">
+            <div class="rc-domaine">${_esc(c.domaine || '—')}</div>
+            ${sub ? `<div class="rc-sub">${sub}</div>` : ''}
+          </td>
+          <td class="rc-achat">${c.prix ? fmt(c.prix) + ' €' : '—'}</td>
+          <td colspan="2" class="rc-action-alt"><button class="btn sm" style="font-size:11px" onclick="Import.wizGo('3a');setTimeout(()=>{ const ta=g('importInstrInput'); if(ta) ta.value='Pour ${_esc((c.domaine||'').replace(/'/g,"\\'"))} : '; },300)">+ Instruction</button></td>
         </tr>`;
       }
     }).join('');
