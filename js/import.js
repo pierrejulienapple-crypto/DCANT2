@@ -115,33 +115,32 @@ const Import = (() => {
     if (spinner) spinner.style.display = 'flex';
 
     try {
-      let base64, mediaType;
+      // images = tableau de { base64, media_type }
+      let images;
 
       const supportedRaw = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
       if (file.type === 'application/pdf') {
-        const result = await _pdfToImage(file);
-        base64 = result.base64;
-        mediaType = 'image/jpeg';
+        images = await _pdfToImages(file);
+        if (images.length === 0) throw new Error('Impossible de lire le PDF (canvas vide)');
       } else if (supportedRaw.includes(file.type) && file.size < 5 * 1024 * 1024) {
-        // Fichier supporté par Claude et < 5MB : envoi brut (meilleure qualité)
-        base64 = await _fileToBase64Raw(file);
-        mediaType = file.type;
+        const base64 = await _fileToBase64Raw(file);
+        images = [{ base64, media_type: file.type }];
       } else {
-        // HEIC, fichier trop gros, ou format exotique : conversion canvas
-        base64 = await _fileToBase64(file);
-        mediaType = 'image/jpeg';
+        const base64 = await _fileToBase64(file);
+        images = [{ base64, media_type: 'image/jpeg' }];
       }
 
-      console.log('[DCANT] analyze:', file.name, file.type, (file.size/1024).toFixed(0)+'KB', 'base64:', (base64.length/1024).toFixed(0)+'KB', 'mediaType:', mediaType);
+      const totalB64 = images.reduce((s, img) => s + img.base64.length, 0);
+      console.log('[DCANT] analyze:', file.name, file.type, (file.size/1024).toFixed(0)+'KB', images.length+'img(s)', 'total base64:', (totalB64/1024).toFixed(0)+'KB');
 
       const corrections = await _getCorrections();
-      const data = await callClaudeAPI(base64, mediaType, corrections);
+      const data = await callClaudeAPI(images, corrections);
 
       if (spinner) spinner.style.display = 'none';
 
       if (data.erreur) {
-        const sizeInfo = `(${file.name}, ${file.type}, ${(file.size/1024).toFixed(0)}KB → base64: ${(base64.length/1024).toFixed(0)}KB)`;
+        const sizeInfo = `(${file.name}, ${file.type}, ${(file.size/1024).toFixed(0)}KB, ${images.length}pg)`;
         console.warn('[DCANT] API erreur:', data.erreur, sizeInfo);
         toast(data.erreur + ' ' + sizeInfo);
         return;
@@ -177,7 +176,7 @@ const Import = (() => {
     }
   }
 
-  async function _pdfToImage(file) {
+  async function _pdfToImages(file) {
     // Charge PDF.js depuis CDN
     if (!window.pdfjsLib) {
       await new Promise((resolve, reject) => {
@@ -193,10 +192,10 @@ const Import = (() => {
 
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const numPages = Math.min(pdf.numPages, 3); // max 3 pages
+    const numPages = Math.min(pdf.numPages, 5); // max 5 pages
 
-    // Rend chaque page dans un canvas séparé, puis combine
-    const pages = [];
+    // Rend chaque page séparément (évite de combiner = pas de limite canvas iOS)
+    const images = [];
     for (let i = 1; i <= numPages; i++) {
       const page = await pdf.getPage(i);
       let scale = 2.0;
@@ -213,30 +212,16 @@ const Import = (() => {
       c.width = Math.round(vp.width);
       c.height = Math.round(vp.height);
       await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
-      pages.push(c);
+      const dataUrl = c.toDataURL('image/jpeg', 0.90);
+      const b64 = dataUrl.split(',')[1];
+      // Vérifie que le canvas n'a pas produit une image vide (iOS fail silencieux)
+      if (b64 && b64.length > 1000) {
+        images.push({ base64: b64, media_type: 'image/jpeg' });
+      }
+      console.log(`[DCANT] PDF page ${i}/${numPages}: ${c.width}x${c.height}px, base64: ${(b64.length/1024).toFixed(0)}KB`);
     }
 
-    // Si une seule page, retourne directement
-    if (pages.length === 1) {
-      const dataUrl = pages[0].toDataURL('image/jpeg', 0.90);
-      return { base64: dataUrl.split(',')[1] };
-    }
-
-    // Combine les pages verticalement
-    const totalW = Math.max(...pages.map(c => c.width));
-    const totalH = pages.reduce((s, c) => s + c.height, 0);
-    const combined = document.createElement('canvas');
-    combined.width = totalW;
-    combined.height = totalH;
-    const ctx = combined.getContext('2d');
-    let y = 0;
-    for (const c of pages) {
-      ctx.drawImage(c, 0, y);
-      y += c.height;
-    }
-
-    const dataUrl = combined.toDataURL('image/jpeg', 0.88);
-    return { base64: dataUrl.split(',')[1] };
+    return images;
   }
 
   // ── TABLEAU ──
