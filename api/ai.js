@@ -48,6 +48,7 @@ export default async function handler(req) {
       body: JSON.stringify({
         model: body.model,
         max_tokens: body.max_tokens || 1000,
+        ...(body.system ? { system: body.system } : {}),
         messages: body.messages
       })
     });
