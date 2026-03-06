@@ -820,14 +820,9 @@ const UI = (() => {
           r.onerror = rej;
           r.readAsDataURL(file);
         });
-        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        const resp = await fetch('/api/ai', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': DCANT_CONFIG.anthropic.key,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: 'claude-haiku-4-5-20251001',
             max_tokens: 600,
@@ -870,14 +865,9 @@ const UI = (() => {
     const btn = g('exportTplRunBtn');
     if (btn) { btn.disabled = true; btn.textContent = 'Génération…'; }
     try {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      const resp = await fetch('/api/ai', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': DCANT_CONFIG.anthropic.key,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 2000,
