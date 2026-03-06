@@ -367,7 +367,8 @@ const UI = (() => {
         if (result.ok) { ok++; App.historique = App.historique.filter(h => h.id !== id); }
       }
       App.selectedIds.clear();
-      renderHistorique();
+      _updateDeleteBtn();
+      await renderHistorique();
       toast(ok + ' cuvée' + (ok > 1 ? 's' : '') + ' supprimée' + (ok > 1 ? 's' : ''));
     });
   }
