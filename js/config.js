@@ -24,9 +24,16 @@ const DCANT_CONFIG = {
 DCANT_CONFIG._keyReady = (async () => {
   try {
     const r = await fetch('/api/anthropic-key');
+    console.log('[DCANT] /api/anthropic-key status:', r.status);
+    if (!r.ok) { console.error('[DCANT] /api/anthropic-key failed:', r.status, r.statusText); return; }
     const d = await r.json();
-    if (d.key) DCANT_CONFIG.anthropic.key = d.key;
+    if (d.key) {
+      DCANT_CONFIG.anthropic.key = d.key;
+      console.log('[DCANT] Clé Anthropic chargée (' + d.key.slice(0,8) + '…)');
+    } else {
+      console.warn('[DCANT] /api/anthropic-key: clé vide — vérifiez ANTHROPIC_KEY dans Vercel (Production + Preview)');
+    }
   } catch(e) {
-    console.error('Clé Anthropic non chargée:', e);
+    console.error('[DCANT] Clé Anthropic non chargée:', e);
   }
 })();

@@ -157,7 +157,12 @@ const Import = (() => {
 
     } catch (e) {
       if (spinner) spinner.style.display = 'none';
-      toast('Erreur : ' + (e.message || 'Réessayez.'));
+      const msg = e.message || 'Réessayez.';
+      console.error('[DCANT] analyze() error:', e);
+      toast('Erreur : ' + msg);
+      // Affiche l'erreur dans la zone du tableau pour debug
+      const tbody = g('importTbody');
+      if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="color:#c00;padding:20px;text-align:center;font-size:13px;">Erreur : ${msg}</td></tr>`;
     }
   }
 
