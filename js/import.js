@@ -141,7 +141,9 @@ const Import = (() => {
       if (spinner) spinner.style.display = 'none';
 
       if (data.erreur) {
-        toast(data.erreur);
+        const sizeInfo = `(${file.name}, ${file.type}, ${(file.size/1024).toFixed(0)}KB → base64: ${(base64.length/1024).toFixed(0)}KB)`;
+        console.warn('[DCANT] API erreur:', data.erreur, sizeInfo);
+        toast(data.erreur + ' ' + sizeInfo);
         return;
       }
 
@@ -191,17 +193,49 @@ const Import = (() => {
 
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const page = await pdf.getPage(1);
-    const viewport = page.getViewport({ scale: 2.0 });
+    const numPages = Math.min(pdf.numPages, 3); // max 3 pages
 
-    const canvas = document.createElement('canvas');
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext('2d');
+    // Rend chaque page dans un canvas séparé, puis combine
+    const pages = [];
+    for (let i = 1; i <= numPages; i++) {
+      const page = await pdf.getPage(i);
+      let scale = 2.0;
+      let vp = page.getViewport({ scale });
 
-    await page.render({ canvasContext: ctx, viewport }).promise;
+      // Cap pour iOS : max ~4M pixels par page
+      const maxPixels = 4000000;
+      if (vp.width * vp.height > maxPixels) {
+        scale *= Math.sqrt(maxPixels / (vp.width * vp.height));
+        vp = page.getViewport({ scale });
+      }
 
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      const c = document.createElement('canvas');
+      c.width = Math.round(vp.width);
+      c.height = Math.round(vp.height);
+      await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+      pages.push(c);
+    }
+
+    // Si une seule page, retourne directement
+    if (pages.length === 1) {
+      const dataUrl = pages[0].toDataURL('image/jpeg', 0.90);
+      return { base64: dataUrl.split(',')[1] };
+    }
+
+    // Combine les pages verticalement
+    const totalW = Math.max(...pages.map(c => c.width));
+    const totalH = pages.reduce((s, c) => s + c.height, 0);
+    const combined = document.createElement('canvas');
+    combined.width = totalW;
+    combined.height = totalH;
+    const ctx = combined.getContext('2d');
+    let y = 0;
+    for (const c of pages) {
+      ctx.drawImage(c, 0, y);
+      y += c.height;
+    }
+
+    const dataUrl = combined.toDataURL('image/jpeg', 0.88);
     return { base64: dataUrl.split(',')[1] };
   }
 
@@ -808,8 +842,16 @@ const Import = (() => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
-        const MAX = 2000;
         let w = img.width, h = img.height;
+        // Cap pour iOS : max ~4M pixels
+        const maxPixels = 4000000;
+        if (w * h > maxPixels) {
+          const ratio = Math.sqrt(maxPixels / (w * h));
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+        // Cap dimensions max 2500px
+        const MAX = 2500;
         if (w > MAX || h > MAX) {
           const ratio = Math.min(MAX / w, MAX / h);
           w = Math.round(w * ratio);
@@ -819,7 +861,7 @@ const Import = (() => {
         canvas.width = w;
         canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
         resolve(dataUrl.split(',')[1]);
         URL.revokeObjectURL(img.src);
       };
