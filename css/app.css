@@ -585,7 +585,7 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   position: fixed;
   inset: 0;
   background: rgba(28,25,23,.5);
-  z-index: 500;
+  z-index: 10001;
   align-items: center;
   justify-content: center;
   padding: 20px;
@@ -1182,6 +1182,7 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   color: var(--accent);
   margin-left: 4px;
   vertical-align: super;
+  pointer-events: none;
 }
 
 /* Colonne PV HT */
@@ -1777,6 +1778,8 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   position: relative;
   vertical-align: middle;
   user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .import-td-click:hover { background: var(--bg); }
 .import-td-click:active { background: var(--border); }
