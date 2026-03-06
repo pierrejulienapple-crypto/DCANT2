@@ -240,6 +240,10 @@ const UI = (() => {
     const ci = g('histCount');
     const filters = g('histFilters');
 
+    // Reset sélection à chaque rendu
+    App.selectedIds.clear();
+    _updateDeleteBtn();
+
     if (!App.user) {
       ci.textContent = '';
       filters.style.display = 'none';
