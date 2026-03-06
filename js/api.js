@@ -1,15 +1,8 @@
 // ═══════════════════════════════════════════
-// DCANT — Appel Claude API direct
+// DCANT — Appel Claude API via proxy /api/ai
 // ═══════════════════════════════════════════
 
 async function callClaudeAPI(imageBase64, mediaType, corrections) {
-  // Attendre que la clé soit chargée depuis /api/anthropic-key
-  if (DCANT_CONFIG._keyReady) await DCANT_CONFIG._keyReady;
-  const apiKey = DCANT_CONFIG.anthropic.key;
-  if (!apiKey || apiKey.includes('COLLER') || apiKey === '') {
-    throw new Error('Clé Anthropic manquante — vérifiez les variables d\'environnement Vercel.');
-  }
-
   let learningContext = '';
   if (corrections && corrections.length > 0) {
     learningContext = `\n\nCorrections passées (apprends de ces erreurs) :\n` +
@@ -44,14 +37,9 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après, sans balise
 
 Limite à 100 cuvées maximum. Si ce n'est pas un tarif de vins, retourne { "erreur": "Ce document ne semble pas être un tarif de vins." }`;
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch('/api/ai', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-opus-4-5',
       max_tokens: 8000,
