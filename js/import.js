@@ -28,15 +28,31 @@ const Import = (() => {
 
   // ── OUVERTURE / FERMETURE ──
 
+  function _lockScroll() {
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.dataset.scrollY = window.scrollY;
+    document.body.style.top = -window.scrollY + 'px';
+  }
+  function _unlockScroll() {
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.width = '';
+    document.body.style.top = '';
+    const y = parseInt(document.body.dataset.scrollY || '0');
+    window.scrollTo(0, y);
+  }
+
   function open() {
     g('importOverlay').classList.add('open');
-    document.body.style.overflow = 'hidden';
+    _lockScroll();
     _reset();
   }
 
   function close() {
     g('importOverlay').classList.remove('open');
-    document.body.style.overflow = '';
+    _unlockScroll();
     ImportVoice.stop();
     _reset();
   }
@@ -261,7 +277,19 @@ const Import = (() => {
       overlay.appendChild(panel);
       overlay.addEventListener('click', (e) => { if (e.target === overlay) _closePop(); });
       document.body.appendChild(overlay);
-      setTimeout(() => g('importPopInput')?.focus(), 100);
+      // Focus + scroll into view quand le clavier iOS apparaît
+      setTimeout(() => {
+        const inp = g('importPopInput');
+        if (inp) {
+          inp.focus();
+          // Quand le clavier redimensionne le viewport, scroll l'input en vue
+          const onResize = () => inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          window.visualViewport?.addEventListener('resize', onResize);
+          inp.addEventListener('blur', () => {
+            window.visualViewport?.removeEventListener('resize', onResize);
+          }, { once: true });
+        }
+      }, 200);
       return;
     }
 
@@ -411,7 +439,7 @@ const Import = (() => {
 
       // Ouvre le wizard et va à l'étape sauvegardée
       g('importOverlay').classList.add('open');
-      document.body.style.overflow = 'hidden';
+      _lockScroll();
       // Active d'abord la carte 1 pour que wizGo puisse transitionner
       const card1 = g('importCard1');
       if (card1) card1.classList.add('active');
@@ -994,6 +1022,28 @@ const Import = (() => {
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
   }
+
+  // Sur mobile, quand le clavier s'ouvre sur le textarea step 3,
+  // scroll pour garder la barre de saisie visible
+  (function _initMobileChatFix() {
+    if (!window.visualViewport) return;
+    let _chatFocused = false;
+    document.addEventListener('focusin', (e) => {
+      if (e.target.id === 'importInstrInput') {
+        _chatFocused = true;
+        const onVpResize = () => {
+          if (!_chatFocused) return;
+          const bar = e.target.closest('.wiz-chat-bar');
+          if (bar) bar.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        };
+        window.visualViewport.addEventListener('resize', onVpResize);
+        e.target.addEventListener('blur', () => {
+          _chatFocused = false;
+          window.visualViewport.removeEventListener('resize', onVpResize);
+        }, { once: true });
+      }
+    });
+  })();
 
   async function wizSendInstr() {
     // Si le micro est actif, on l'arrête et on attend la fin avant d'envoyer
