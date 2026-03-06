@@ -240,6 +240,10 @@ const UI = (() => {
     const ci = g('histCount');
     const filters = g('histFilters');
 
+    // Reset sélection à chaque rendu
+    App.selectedIds.clear();
+    _updateDeleteBtn();
+
     if (!App.user) {
       ci.textContent = '';
       filters.style.display = 'none';
@@ -319,6 +323,13 @@ const UI = (() => {
           </div>
         </div>`;
       }).join('') + '</div>';
+
+    // Nettoie les IDs orphelins (supprimés ou filtrés) et met à jour le bouton
+    const currentIds = new Set(App.historique.map(e => e.id));
+    for (const id of App.selectedIds) {
+      if (!currentIds.has(id)) App.selectedIds.delete(id);
+    }
+    _updateDeleteBtn();
   }
 
   function toggleSel(id, checked) {
@@ -339,7 +350,7 @@ const UI = (() => {
     const btn = g('histActions');
     if (!btn) return;
     const n = App.selectedIds.size;
-    btn.style.display = n > 0 ? 'flex' : 'none';
+    if (n > 0) { btn.classList.add('visible'); } else { btn.classList.remove('visible'); }
     const delBtn = g('histDeleteBtn');
     if (delBtn) delBtn.textContent = `Supprimer (${n})`;
   }
@@ -348,17 +359,18 @@ const UI = (() => {
     const ids = [...App.selectedIds];
     if (!ids.length) return;
     const n = ids.length;
-    const label = n === 1 ? 'cette cuvée' : `ces ${n} cuvées`;
-    askConfirm(`Supprimer ${label} ?`, async () => {
-      let ok = 0;
-      for (const id of ids) {
-        const result = await Storage.deleteCalcul(id);
-        if (result.ok) { ok++; App.historique = App.historique.filter(h => h.id !== id); }
-      }
-      App.selectedIds.clear();
-      renderHistorique();
-      toast(ok + ' cuvée' + (ok > 1 ? 's' : '') + ' supprimée' + (ok > 1 ? 's' : ''));
-    });
+    if (!window.confirm(`Supprimer ${n === 1 ? 'cette cuvée' : 'ces ' + n + ' cuvées'} ?`)) return;
+
+    g('histActions').classList.remove('visible');
+    App.selectedIds.clear();
+
+    let ok = 0;
+    for (const id of ids) {
+      const result = await Storage.deleteCalcul(id);
+      if (result.ok) { ok++; App.historique = App.historique.filter(h => h.id !== id); }
+    }
+    await renderHistorique();
+    toast(ok + ' cuvée' + (ok > 1 ? 's' : '') + ' supprimée' + (ok > 1 ? 's' : ''));
   }
 
   function toggleDom(hd) {
