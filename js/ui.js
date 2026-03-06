@@ -150,10 +150,10 @@ const UI = (() => {
         : 'Coefficient ×' + m.mode_value;
       return `<div class="model-dd-item">
         <div>
-          <div class="model-dd-name" onclick="UI.applyModel(${i})">${m.nom}</div>
+          <div class="model-dd-name" onclick="UI.applyModel(${i})">${esc(m.nom)}</div>
           <div class="model-dd-sub">${sub}</div>
         </div>
-        <button class="model-dd-del" onclick="UI.deleteModel('${m.id}','${m.nom.replace(/'/g,"\\'")}')">✕</button>
+        <button class="model-dd-del" onclick="UI.deleteModel('${m.id}','${esc(m.nom).replace(/'/g,"\\'")}')">✕</button>
       </div>`;
     }).join('');
   }
@@ -290,7 +290,7 @@ const UI = (() => {
         return `<div class="domain-card">
           <div class="domain-card-hd" onclick="UI.toggleDom(this)">
             <div>
-              <div class="domain-name">${domain}</div>
+              <div class="domain-name">${esc(domain)}</div>
               <div class="domain-meta">${entries.length} cuvée${entries.length > 1 ? 's' : ''} · dernier PV ${fmt(latest.pvht)} € HT</div>
             </div>
             <label class="dom-sel-all" onclick="event.stopPropagation()">
@@ -306,8 +306,8 @@ const UI = (() => {
                     onchange="UI.toggleSel('${e.id}',this.checked)">
                 </div>
                 <div class="entry-left">
-                  <div class="entry-cuvee">${e.cuvee || '—'}${e.appellation ? ` <span class="entry-appellation">${e.appellation}</span>` : ''}</div>
-                  <div class="entry-sub">${e.millesime || ''} <span class="badge">${e.mode}</span>
+                  <div class="entry-cuvee">${esc(e.cuvee || '—')}${e.appellation ? ` <span class="entry-appellation">${esc(e.appellation)}</span>` : ''}</div>
+                  <div class="entry-sub">${esc(e.millesime || '')} <span class="badge">${esc(e.mode)}</span>
                     ${new Date(e.created_at).toLocaleDateString('fr-FR')}</div>
                 </div>
                 <div class="entry-right">
@@ -413,7 +413,7 @@ const UI = (() => {
       chargesHtml = `<div class="modal-sec"><div class="modal-sec-label">Charges</div>
         ${e.charges.transport > 0 ? `<div class="modal-row"><span class="modal-row-k">Transport</span><span class="modal-row-v">${fmt(e.charges.transport)} €</span></div>` : ''}
         ${e.charges.douane > 0 ? `<div class="modal-row"><span class="modal-row-k">Douane</span><span class="modal-row-v">${fmt(e.charges.douane)} €</span></div>` : ''}
-        ${(e.charges.others || []).map(o => `<div class="modal-row"><span class="modal-row-k">${o.label}</span><span class="modal-row-v">${fmt(o.val)} €</span></div>`).join('')}
+        ${(e.charges.others || []).map(o => `<div class="modal-row"><span class="modal-row-k">${esc(o.label)}</span><span class="modal-row-v">${fmt(o.val)} €</span></div>`).join('')}
         <div class="modal-row" style="font-weight:700"><span class="modal-row-k">Coût de revient</span><span class="modal-row-v">${fmt(e.cout_revient)} €</span></div>
       </div>`;
     }
@@ -421,7 +421,7 @@ const UI = (() => {
     const modeLabel = e.mode === 'euros' ? 'Marge fixe' : e.mode === 'pct' ? 'Taux de marge' : 'Coefficient';
     const modeVal = fmt(e.mode_value) + (e.mode === 'pct' ? '%' : e.mode === 'coeff' ? '×' : ' €');
     const cmtHtml = e.commentaire ? `<div class="modal-sec"><div class="modal-sec-label">Commentaire</div>
-      <div style="font-size:14px;color:var(--dim);line-height:1.7">${e.commentaire}</div></div>` : '';
+      <div style="font-size:14px;color:var(--dim);line-height:1.7">${esc(e.commentaire)}</div></div>` : '';
 
     g('detailBody').innerHTML = `
       <div class="modal-sec"><div class="modal-sec-label">Achat</div>
@@ -754,7 +754,7 @@ const UI = (() => {
           <div class="admin-bar-bg"><div class="admin-bar-fill" style="width:${total ? counts[o] / total * 100 : 0}%"></div></div>
           <span class="admin-count">${counts[o]}</span>
         </div>`).join('')}
-        ${cmts.length ? '<div style="margin-top:12px">' + cmts.map(c => `<div class="admin-comment">"${c}"</div>`).join('') + '</div>' : ''}
+        ${cmts.length ? '<div style="margin-top:12px">' + cmts.map(c => `<div class="admin-comment">"${esc(c)}"</div>`).join('') + '</div>' : ''}
       </div>`;
     }).join('');
   }
@@ -818,7 +818,7 @@ const UI = (() => {
     const dropInner = g('exportTplDropInner');
     const status = g('exportTplStatus');
     const runBtn = g('exportTplRunBtn');
-    if (dropInner) dropInner.innerHTML = `<div style="font-size:13px;color:var(--accent);font-weight:600">${file.name}</div><div style="font-size:11px;color:var(--dimmer);margin-top:4px">Analyse en cours…</div>`;
+    if (dropInner) dropInner.innerHTML = `<div style="font-size:13px;color:var(--accent);font-weight:600">${esc(file.name)}</div><div style="font-size:11px;color:var(--dimmer);margin-top:4px">Analyse en cours…</div>`;
     if (status) status.style.display = 'none';
 
     try {
@@ -860,9 +860,9 @@ const UI = (() => {
         status.style.display = 'block';
         status.innerHTML = `
           <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dimmer);margin-bottom:8px">Colonnes détectées</div>
-          <div style="font-size:12px;color:var(--dim);margin-bottom:10px;font-style:italic">${config.description || file.name}</div>
+          <div style="font-size:12px;color:var(--dim);margin-bottom:10px;font-style:italic">${esc(config.description || file.name)}</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${(config.colonnes || []).map(c => `<span style="font-size:11px;background:rgba(26,39,68,.08);color:var(--accent);padding:3px 8px;font-weight:600">${c}</span>`).join('')}
+            ${(config.colonnes || []).map(c => `<span style="font-size:11px;background:rgba(26,39,68,.08);color:var(--accent);padding:3px 8px;font-weight:600">${esc(c)}</span>`).join('')}
           </div>`;
       }
       if (runBtn) runBtn.style.display = 'block';

@@ -9,10 +9,7 @@ const Import = (() => {
   let _appliedMode = null;
   let _appliedValue = null;
   let _appliedCharges = null;
-  let _recognition = null;
-  let _isRecording = false;
-  let _mediaRecorder = null;
-  let _audioChunks = [];
+  // Enregistrement vocal délégué à ImportVoice (import-voice.js)
   let _currentFile = null;
   let _thumbnailUrl = null;
   let _appliedRegles = [];
@@ -40,7 +37,7 @@ const Import = (() => {
   function close() {
     g('importOverlay').classList.remove('open');
     document.body.style.overflow = '';
-    _stopRecording();
+    ImportVoice.stop();
     _reset();
   }
 
@@ -126,21 +123,7 @@ const Import = (() => {
     if (spinner) spinner.style.display = 'flex';
 
     try {
-      // images = tableau de { base64, media_type }
-      let images;
-
-      const supportedRaw = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-
-      if (file.type === 'application/pdf') {
-        images = await _pdfToImages(file);
-        if (images.length === 0) throw new Error('Impossible de lire le PDF (canvas vide)');
-      } else if (supportedRaw.includes(file.type) && file.size < 5 * 1024 * 1024) {
-        const base64 = await _fileToBase64Raw(file);
-        images = [{ base64, media_type: file.type }];
-      } else {
-        const base64 = await _fileToBase64(file);
-        images = [{ base64, media_type: 'image/jpeg' }];
-      }
+      const images = await ImportUpload.prepareImages(file);
 
       const totalB64 = images.reduce((s, img) => s + img.base64.length, 0);
       console.log('[DCANT] analyze:', file.name, file.type, (file.size/1024).toFixed(0)+'KB', images.length+'img(s)', 'total base64:', (totalB64/1024).toFixed(0)+'KB');
@@ -183,56 +166,8 @@ const Import = (() => {
       toast('Erreur : ' + msg);
       // Affiche l'erreur dans la zone du tableau pour debug
       const tbody = g('importTbody');
-      if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="color:#c00;padding:20px;text-align:center;font-size:13px;">Erreur : ${msg}</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="color:#c00;padding:20px;text-align:center;font-size:13px;">Erreur : ${_esc(msg)}</td></tr>`;
     }
-  }
-
-  async function _pdfToImages(file) {
-    // Charge PDF.js depuis CDN
-    if (!window.pdfjsLib) {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const numPages = Math.min(pdf.numPages, 5); // max 5 pages
-
-    // Rend chaque page séparément (évite de combiner = pas de limite canvas iOS)
-    const images = [];
-    for (let i = 1; i <= numPages; i++) {
-      const page = await pdf.getPage(i);
-      let scale = 2.0;
-      let vp = page.getViewport({ scale });
-
-      // Cap pour iOS : max ~4M pixels par page
-      const maxPixels = 4000000;
-      if (vp.width * vp.height > maxPixels) {
-        scale *= Math.sqrt(maxPixels / (vp.width * vp.height));
-        vp = page.getViewport({ scale });
-      }
-
-      const c = document.createElement('canvas');
-      c.width = Math.round(vp.width);
-      c.height = Math.round(vp.height);
-      await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
-      const dataUrl = c.toDataURL('image/jpeg', 0.90);
-      const b64 = dataUrl.split(',')[1];
-      // Vérifie que le canvas n'a pas produit une image vide (iOS fail silencieux)
-      if (b64 && b64.length > 1000) {
-        images.push({ base64: b64, media_type: 'image/jpeg' });
-      }
-      console.log(`[DCANT] PDF page ${i}/${numPages}: ${c.width}x${c.height}px, base64: ${(b64.length/1024).toFixed(0)}KB`);
-    }
-
-    return images;
   }
 
   // ── TABLEAU ──
@@ -243,7 +178,8 @@ const Import = (() => {
     _updateSaveAllBtn();
   }
 
-  function _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  // Utilise le global esc() de state.js
+  const _esc = esc;
 
   function _rowHTML(c) {
     const fields = ['domaine', 'cuvee', 'appellation', 'millesime', 'prix'];
@@ -771,7 +707,7 @@ const Import = (() => {
     // Condition
     const opLabel = { lt:'<', lte:'≤', gt:'>', gte:'≥', eq:'=', contains:'contient' };
     const condTxt = regle?.condition?.champ
-      ? `Prix ${opLabel[regle.condition.operateur] || '?'} ${regle.condition.valeur} €`
+      ? `Prix ${opLabel[regle.condition.operateur] || '?'} ${_esc(regle.condition.valeur)} €`
       : 'Toutes les bouteilles';
 
     // Prix d'achat + charges → coût de revient
@@ -973,52 +909,6 @@ const Import = (() => {
     } catch (e) { return []; }
   }
 
-  // ── UTILITAIRES ──
-
-  function _fileToBase64Raw(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  function _fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        let w = img.width, h = img.height;
-        // Cap pour iOS : max ~4M pixels
-        const maxPixels = 4000000;
-        if (w * h > maxPixels) {
-          const ratio = Math.sqrt(maxPixels / (w * h));
-          w = Math.round(w * ratio);
-          h = Math.round(h * ratio);
-        }
-        // Cap dimensions max 2500px
-        const MAX = 2500;
-        if (w > MAX || h > MAX) {
-          const ratio = Math.min(MAX / w, MAX / h);
-          w = Math.round(w * ratio);
-          h = Math.round(h * ratio);
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
-        resolve(dataUrl.split(',')[1]);
-        URL.revokeObjectURL(img.src);
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(img.src);
-        reject(new Error('Impossible de lire cette image'));
-      };
-      img.src = URL.createObjectURL(file);
-    });
-  }
-
   function renderModeleDrop() {
     const sel = g('importModeleSel');
     if (!sel) return;
@@ -1027,155 +917,22 @@ const Import = (() => {
       return;
     }
     sel.innerHTML = '<option value="">Choisir un modèle...</option>' +
-      App.modeles.map(m => `<option value="${m.nom}">${m.nom}</option>`).join('');
+      App.modeles.map(m => `<option value="${_esc(m.nom)}">${_esc(m.nom)}</option>`).join('');
   }
 
   // ── INSTRUCTIONS VOCALES / TEXTE ──
 
   function toggleRecording() {
-    if (_isRecording) {
-      _stopRecording();
+    if (ImportVoice.isRecording()) {
+      ImportVoice.stop();
     } else {
-      _startRecording();
+      ImportVoice.start();
     }
   }
 
   function resetInstr() {
     if (g('importInstrInput')) g('importInstrInput').value = '';
     if (g('importInstrResult')) g('importInstrResult').style.display = 'none';
-  }
-
-  function _setMicUI(recording) {
-    _isRecording = recording;
-    const btn = g('importMicBtn');
-    if (!btn) return;
-    if (recording) {
-      btn.classList.add('recording');
-      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
-      // Indicateur visuel
-      let ind = g('micRecIndicator');
-      if (!ind) {
-        ind = document.createElement('div');
-        ind.id = 'micRecIndicator';
-        ind.className = 'mic-rec-indicator';
-        ind.innerHTML = '<span class="mic-rec-dot"></span> Parlez, ça enregistre…';
-        const bar = btn.closest('.wiz-chat-bar');
-        if (bar) bar.parentNode.insertBefore(ind, bar);
-      }
-      ind.style.display = '';
-    } else {
-      btn.classList.remove('recording');
-      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`;
-      const ind = g('micRecIndicator');
-      if (ind) ind.style.display = 'none';
-    }
-  }
-
-  async function _startRecording() {
-    // Essaye Whisper (MediaRecorder) en priorité
-    if (navigator.mediaDevices && typeof MediaRecorder !== 'undefined') {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        // Choisit un mime supporté (mp4 pour iOS Safari, webm sinon)
-        const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : 'audio/mp4';
-        _mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
-        _audioChunks = [];
-
-        _mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) _audioChunks.push(e.data);
-        };
-
-        _mediaRecorder.onstop = async () => {
-          stream.getTracks().forEach(t => t.stop());
-          const blob = new Blob(_audioChunks, { type: mime });
-          _audioChunks = [];
-          _setMicUI(false);
-
-          // Convertit en base64 et envoie à Whisper
-          const reader = new FileReader();
-          reader.onloadend = async () => {
-            const base64 = reader.result.split(',')[1];
-            try {
-              toast('Transcription en cours…');
-              const resp = await fetch('/api/whisper', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ audio: base64, mime })
-              });
-              const data = await resp.json();
-              if (!resp.ok) throw new Error(data.error || 'Erreur Whisper');
-              const input = g('importInstrInput');
-              if (input && data.text) {
-                const existing = input.value.trimEnd();
-                input.value = existing ? existing + ' ' + data.text : data.text;
-              }
-            } catch (err) {
-              console.error('Whisper error:', err);
-              toast('Erreur de transcription. Réessayez.');
-            }
-          };
-          reader.readAsDataURL(blob);
-        };
-
-        _mediaRecorder.start();
-        _setMicUI(true);
-        return;
-      } catch (err) {
-        console.warn('MediaRecorder fallback to Web Speech:', err);
-      }
-    }
-
-    // Fallback : Web Speech API
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast('Dictée non supportée sur ce navigateur. Tapez vos instructions.');
-      return;
-    }
-
-    _recognition = new SpeechRecognition();
-    _recognition.lang = 'fr-FR';
-    _recognition.continuous = true;
-    _recognition.interimResults = true;
-    const existingText = (g('importInstrInput')?.value || '').trimEnd();
-
-    _recognition.onstart = () => _setMicUI(true);
-
-    _recognition.onresult = (e) => {
-      let interim = '', final = '';
-      for (let i = 0; i < e.results.length; i++) {
-        if (e.results[i].isFinal) final += e.results[i][0].transcript;
-        else interim += e.results[i][0].transcript;
-      }
-      const sep = existingText ? ' ' : '';
-      g('importInstrInput').value = existingText + sep + final + interim;
-    };
-
-    _recognition.onend = () => {
-      _setMicUI(false);
-      _recognition = null;
-    };
-
-    _recognition.onerror = (ev) => {
-      if (ev.error !== 'no-speech') toast('Erreur de dictée. Réessayez.');
-      _stopRecording();
-    };
-
-    _recognition.start();
-  }
-
-  function _stopRecording() {
-    if (_mediaRecorder && _mediaRecorder.state !== 'inactive') {
-      _mediaRecorder.stop();
-      _mediaRecorder = null;
-      return;
-    }
-    if (_recognition) {
-      try { _recognition.stop(); } catch(e) {}
-    } else {
-      _setMicUI(false);
-    }
   }
 
   function wizDismissTuto() {
@@ -1240,8 +997,8 @@ const Import = (() => {
 
   async function wizSendInstr() {
     // Si le micro est actif, on l'arrête et on attend la fin avant d'envoyer
-    if (_isRecording) {
-      _stopRecording();
+    if (ImportVoice.isRecording()) {
+      ImportVoice.stop();
       // onend sera appelé dans ~300ms — on attend puis on rappelle
       await new Promise(r => setTimeout(r, 500));
     }
@@ -1333,11 +1090,11 @@ Instructions : "${text}"`;
       if (bubble && rulesEl) {
         rulesEl.innerHTML = regles.map((r, i) => {
           const condTxt = r.condition?.champ
-            ? ` <span class="wiz-confirm-cond">(si ${r.condition.champ} ${r.condition.operateur === 'lt' ? '<' : r.condition.operateur === 'lte' ? '≤' : r.condition.operateur === 'gt' ? '>' : r.condition.operateur === 'gte' ? '≥' : '='} ${r.condition.valeur})</span>`
+            ? ` <span class="wiz-confirm-cond">(si ${_esc(r.condition.champ)} ${r.condition.operateur === 'lt' ? '<' : r.condition.operateur === 'lte' ? '≤' : r.condition.operateur === 'gt' ? '>' : r.condition.operateur === 'gte' ? '≥' : '='} ${_esc(r.condition.valeur)})</span>`
             : '';
           return `<div class="wiz-confirm-rule">
             <span class="wiz-confirm-num">${regles.length > 1 ? (i + 1) + '.' : '→'}</span>
-            <span>${r.resume}${condTxt}</span>
+            <span>${_esc(r.resume)}${condTxt}</span>
           </div>`;
         }).join('');
         bubble.style.display = 'block';
@@ -1568,7 +1325,7 @@ Instructions : "${text}"`;
                       'Coeff × ' + fmt(m.mode_value);
       const chargesStr = m.charges && m.charges.total > 0 ? ' + ' + fmt(m.charges.total) + ' € charges' : '';
       return `<div class="wiz-modele-row" onclick="Import.wizApplyModeleAndCalc('${m.id}')">
-        <div class="wiz-modele-row-name">${m.name || 'Modèle'}</div>
+        <div class="wiz-modele-row-name">${_esc(m.name || 'Modèle')}</div>
         <div class="wiz-modele-row-detail">${modeStr}${chargesStr}</div>
         <span class="wiz-modele-row-arr">›</span>
       </div>`;
@@ -1650,8 +1407,8 @@ Instructions : "${text}"`;
         const checkSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`;
         return `<tr id="import-res-row-${c.id}">
           <td class="res-row-detail-cell" onclick="Import.showResDetail(${c.id})" style="cursor:pointer">
-            <strong style="font-size:12px">${c.domaine || '—'}</strong>
-            <br><span style="font-size:11px;color:var(--dimmer)">${c.cuvee || ''} ${c.appellation ? '· ' + c.appellation : ''} ${c.millesime || ''}</span>
+            <strong style="font-size:12px">${_esc(c.domaine || '—')}</strong>
+            <br><span style="font-size:11px;color:var(--dimmer)">${_esc(c.cuvee || '')} ${c.appellation ? '· ' + _esc(c.appellation) : ''} ${_esc(c.millesime || '')}</span>
           </td>
           <td class="res-row-detail-cell" onclick="Import.showResDetail(${c.id})" style="cursor:pointer;color:var(--dim);font-size:12px">${c.prix ? fmt(c.prix) + ' €' : '—'}</td>
           <td class="res-row-detail-cell" onclick="Import.showResDetail(${c.id})" style="cursor:pointer">${pvHtml}</td>
@@ -1660,9 +1417,9 @@ Instructions : "${text}"`;
       } else {
         // Pas de PV calculé — propose de dicter une instruction spécifique
         return `<tr id="import-res-row-${c.id}" class="import-row-uncalc">
-          <td><strong style="font-size:12px">${c.domaine || '—'}</strong><br><span style="font-size:11px;color:var(--dimmer)">${c.cuvee || ''} ${c.appellation ? '· ' + c.appellation : ''} ${c.millesime || ''}</span></td>
+          <td><strong style="font-size:12px">${_esc(c.domaine || '—')}</strong><br><span style="font-size:11px;color:var(--dimmer)">${_esc(c.cuvee || '')} ${c.appellation ? '· ' + _esc(c.appellation) : ''} ${_esc(c.millesime || '')}</span></td>
           <td style="color:var(--dim);font-size:12px">${c.prix ? fmt(c.prix) + ' €' : '—'}</td>
-          <td colspan="2"><button class="btn sm" style="font-size:11px" onclick="Import.wizGo('3a');setTimeout(()=>{ const ta=g('importInstrInput'); if(ta) ta.value='Pour ${(c.domaine||'').replace(/'/g,"\'")} : '; },300)">+ Instruction</button></td>
+          <td colspan="2"><button class="btn sm" style="font-size:11px" onclick="Import.wizGo('3a');setTimeout(()=>{ const ta=g('importInstrInput'); if(ta) ta.value='Pour ${_esc((c.domaine||'').replace(/'/g,"\\'"))} : '; },300)">+ Instruction</button></td>
         </tr>`;
       }
     }).join('');
