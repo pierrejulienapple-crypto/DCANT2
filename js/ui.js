@@ -222,7 +222,7 @@ const UI = (() => {
     const mv = parseFloat(g('modeValue').value) || 0;
     if (!mv || !App.user) return;
     const ch = Calcul_UI.getCharges();
-    const result = await Storage.saveModele(App.user.email, {
+    const result = await Storage.saveModele(App.user.id, {
       name, mode: App.calc.mode, modeValue: mv,
       transport: ch.transport, douane: ch.douane, others: ch.others
     });
@@ -249,7 +249,7 @@ const UI = (() => {
     }
 
     el.innerHTML = '<div class="empty">Chargement…</div>';
-    App.historique = await Storage.getHistorique(App.user.email);
+    App.historique = await Storage.getHistorique(App.user.id);
 
     const fD = (g('fD').value || '').toLowerCase();
     const fC = (g('fC').value || '').toLowerCase();

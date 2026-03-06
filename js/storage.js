@@ -6,14 +6,14 @@
 
 const Storage = (() => {
 
-  // ── HISTORIQUE ──
+  // ── HISTORIQUE (table: calculs) ──
 
-  async function getHistorique(userEmail) {
+  async function getHistorique(userId) {
     try {
       const { data, error } = await window.supabase
         .from('calculs')
         .select('*')
-        .eq('user_email', userEmail)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
@@ -23,7 +23,7 @@ const Storage = (() => {
     }
   }
 
-  async function saveCalcul(userEmail, entry) {
+  async function saveCalcul(userId, entry) {
     try {
       // Normalise le domaine : première lettre majuscule, reste en minuscule
       // pour éviter les doublons type "sergio genuardi" vs "Sergio Genuardi"
@@ -35,7 +35,7 @@ const Storage = (() => {
       const { data, error } = await window.supabase
         .from('calculs')
         .insert([{
-          user_email: userEmail,
+          user_id: userId,
           domaine: normaliseDomaine(entry.domaine),
           cuvee: entry.cuvee || '',
           millesime: entry.millesime || '',
@@ -106,12 +106,12 @@ const Storage = (() => {
 
   // ── MODÈLES DE MARGE ──
 
-  async function getModeles(userEmail) {
+  async function getModeles(userId) {
     try {
       const { data, error } = await window.supabase
         .from('modeles')
         .select('*')
-        .eq('user_email', userEmail)
+        .eq('user_id', userId)
         .order('created_at', { ascending: true });
       if (error) throw error;
       return data || [];
@@ -121,12 +121,12 @@ const Storage = (() => {
     }
   }
 
-  async function saveModele(userEmail, modele) {
+  async function saveModele(userId, modele) {
     try {
       const { data, error } = await window.supabase
         .from('modeles')
         .insert([{
-          user_email: userEmail,
+          user_id: userId,
           nom: modele.name,
           mode: modele.mode,
           mode_value: modele.modeValue,
@@ -160,12 +160,12 @@ const Storage = (() => {
 
   // ── FEEDBACK ──
 
-  async function saveFeedback(userEmail, questionN, reponse, commentaire) {
+  async function saveFeedback(userId, questionN, reponse, commentaire) {
     try {
       const { error } = await window.supabase
         .from('feedback')
         .insert([{
-          user_email: userEmail || 'anonyme',
+          user_id: userId || null,
           question: questionN,
           reponse,
           commentaire: commentaire || ''
@@ -178,7 +178,7 @@ const Storage = (() => {
         try {
           fetch(gsUrl, {
             method: 'POST',
-            body: JSON.stringify({ question: 'Q' + questionN, reponse, commentaire, email: userEmail })
+            body: JSON.stringify({ question: 'Q' + questionN, reponse, commentaire, user_id: userId })
           });
         } catch (e) {}
       }
@@ -215,13 +215,13 @@ const Storage = (() => {
   };
 
   // Vérifie si Q2-Q5 ont déjà été répondues dans Supabase (tous appareils)
-  async function feedbackDoneRemote(n, userEmail) {
-    if (!userEmail) return false;
+  async function feedbackDoneRemote(n, userId) {
+    if (!userId) return false;
     try {
       const { data } = await window.supabase
         .from('feedback')
         .select('id')
-        .eq('user_email', userEmail)
+        .eq('user_id', userId)
         .eq('question', n)
         .limit(1);
       return data && data.length > 0;

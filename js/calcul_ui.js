@@ -160,7 +160,7 @@ const Calcul_UI = (() => {
       ...r
     };
 
-    const result = await Storage.saveCalcul(App.user.email, entry);
+    const result = await Storage.saveCalcul(App.user.id, entry);
     if (!result.ok) { toast('Erreur sauvegarde : ' + (result.error || 'inconnue')); return; }
 
     App.historique.unshift(result.data);

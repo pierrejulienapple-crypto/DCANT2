@@ -692,11 +692,11 @@ const Import = (() => {
       pvttc: r.pvttc
     };
 
-    const result = await Storage.saveCalcul(App.user.email, entry);
+    const result = await Storage.saveCalcul(App.user.id, entry);
     if (!result.ok) { toast('Erreur sauvegarde : ' + (result.error || 'inconnue')); return; }
     c.saved = true;
     _refreshRow(id);
-    App.historique = await Storage.getHistorique(App.user.email);
+    App.historique = await Storage.getHistorique(App.user.id);
     toast('Sauvegardé dans l\'historique');
   }
 
@@ -708,7 +708,7 @@ const Import = (() => {
     for (const c of toSave) await saveLine(c.id);
 
     // Fusionne les doublons de domaine dans Supabase
-    await _mergeDuplicateDomains(App.user.email);
+    await _mergeDuplicateDomains(App.user.id);
 
     toast(toSave.length + ' entrée' + (toSave.length > 1 ? 's' : '') + ' sauvegardée' + (toSave.length > 1 ? 's' : '') + ' !');
 
@@ -722,7 +722,7 @@ const Import = (() => {
       const { data: entries } = await window.supabase
         .from('calculs')
         .select('id, domaine')
-        .eq('user_email', userEmail);
+        .eq('user_id', userEmail);
 
       if (!entries || !entries.length) return;
 
@@ -761,7 +761,7 @@ const Import = (() => {
   async function _saveCorrection(original, corrected, field) {
     try {
       await window.supabase.from('corrections').insert([{
-        user_email: App.user.email,
+        user_id: App.user.id,
         original,
         corrected,
         field,
@@ -776,7 +776,7 @@ const Import = (() => {
       const { data } = await window.supabase
         .from('corrections')
         .select('*')
-        .eq('user_email', App.user.email)
+        .eq('user_id', App.user.id)
         .order('created_at', { ascending: false })
         .limit(50);
       return data || [];

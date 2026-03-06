@@ -66,8 +66,8 @@ const Feedback = (() => {
       if (Storage.Local.feedbackDone(1)) return;
     } else {
       // Q2-Q5 → vérifie Supabase (par compte)
-      const email = App.user ? App.user.email : null;
-      const done = await Storage.feedbackDoneRemote(n, email);
+      const uid = App.user ? App.user.id : null;
+      const done = await Storage.feedbackDoneRemote(n, uid);
       if (done) return;
       // Aussi vérifie localStorage au cas où
       if (Storage.Local.feedbackDone(n)) return;
@@ -132,9 +132,9 @@ const Feedback = (() => {
     if (!ans) { toast('Choisissez une réponse.'); return; }
 
     const comment = g('sheetComment').value.trim() || '';
-    const email = App.user ? App.user.email : 'anonyme';
+    const uid = App.user ? App.user.id : null;
 
-    await Storage.saveFeedback(email, _currentN, ans, comment);
+    await Storage.saveFeedback(uid, _currentN, ans, comment);
     Storage.Local.setFeedbackDone(_currentN);
     track('feedback_q' + _currentN, { reponse: ans });
 
