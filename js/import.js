@@ -18,6 +18,7 @@ const Import = (() => {
   let _wizCur = 1;
   const _WIZ_ORDER = [1, 2, 'modele', 'tuto', 3, 4];
   let _wizExInterval = null;
+  let _sessionEdits = [];
 
   // ── OUVERTURE / FERMETURE ──
 
@@ -41,6 +42,7 @@ const Import = (() => {
   function _reset() {
     _closePop();
     _cuvees = [];
+    _sessionEdits = [];
     _appliedMode = null;
     _appliedValue = null;
     _appliedCharges = null;
@@ -270,6 +272,16 @@ const Import = (() => {
     pop.id = 'importPop';
     pop.addEventListener('click', e => e.stopPropagation());
 
+    // Suggestions basées sur les éditions précédentes de la session
+    const suggestions = _getSuggestions(field, currentVal);
+    let suggestHTML = '';
+    if (suggestions.length > 0) {
+      suggestHTML = `<div class="import-pop-suggestions">
+        <div class="import-pop-suggest-label">Suggestion :</div>
+        ${suggestions.map(s => `<button class="import-pop-suggest" data-val="${s.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();Import.selectAlt(${id},'${field}',this.dataset.val,event)">${s}</button>`).join('')}
+      </div>`;
+    }
+
     let altsHTML = '';
     if (alts.length > 0) {
       altsHTML = `<div class="import-pop-alts">
@@ -279,6 +291,7 @@ const Import = (() => {
     }
 
     pop.innerHTML = `
+      ${suggestHTML}
       ${altsHTML}
       <div class="import-pop-field">
         <input type="${field === 'prix' ? 'number' : 'text'}" 
@@ -349,6 +362,11 @@ const Import = (() => {
     // Ferme la popup AVANT le refresh pour éviter la réapparition
     _closePop();
 
+    // Stocke l'édition pour suggestions sur les autres cellules de la colonne
+    if (String(oldVal) !== String(newVal)) {
+      _sessionEdits.push({ field, oldVal: String(oldVal), newVal: String(newVal) });
+    }
+
     // Stocke la correction pour l'apprentissage
     if (oldVal !== newVal && App.user) {
       await _saveCorrection(String(oldVal), String(newVal), field);
@@ -361,11 +379,72 @@ const Import = (() => {
     _refreshRow(id);
   }
 
+  function _getSuggestions(field, currentVal) {
+    const suggestions = [];
+    const cv = String(currentVal);
+    for (const edit of _sessionEdits) {
+      if (edit.field !== field) continue;
+      if (edit.oldVal === cv) continue; // c'est la même cellule déjà éditée
+
+      // Suffixe supprimé : "G23 blanc"→"G23", suffixe=" blanc"
+      if (edit.oldVal.startsWith(edit.newVal) && edit.newVal.length < edit.oldVal.length) {
+        const suffix = edit.oldVal.slice(edit.newVal.length);
+        if (cv.endsWith(suffix)) suggestions.push(cv.slice(0, -suffix.length));
+      }
+
+      // Préfixe supprimé
+      if (edit.oldVal.endsWith(edit.newVal) && edit.newVal.length < edit.oldVal.length) {
+        const prefix = edit.oldVal.slice(0, edit.oldVal.length - edit.newVal.length);
+        if (cv.startsWith(prefix)) suggestions.push(cv.slice(prefix.length));
+      }
+
+      // Dernier mot supprimé : "G23 blanc"→"G23"
+      if (edit.oldVal.replace(/\s+\S+$/, '') === edit.newVal) {
+        const s = cv.replace(/\s+\S+$/, '');
+        if (s !== cv && s.length > 0) suggestions.push(s);
+      }
+
+      // Premier mot supprimé
+      if (edit.oldVal.replace(/^\S+\s+/, '') === edit.newVal) {
+        const s = cv.replace(/^\S+\s+/, '');
+        if (s !== cv && s.length > 0) suggestions.push(s);
+      }
+    }
+    // Dédupliquer et filtrer
+    return [...new Set(suggestions)].filter(s => s !== cv && s.length > 0);
+  }
+
   function closePop() { _closePop(); }
 
   function _closePop() {
     const pop = g('importPop');
     if (pop) pop.remove();
+  }
+
+  function _showAuthPrompt() {
+    // Ferme un éventuel prompt précédent
+    const old = g('authPromptOverlay');
+    if (old) old.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'auth-prompt-overlay';
+    overlay.id = 'authPromptOverlay';
+    overlay.innerHTML = `
+      <div class="auth-prompt-modal">
+        <div class="auth-prompt-title">Connexion requise</div>
+        <p class="auth-prompt-text">Connectez-vous ou créez un compte pour sauvegarder vos données.<br>Vos données seront conservées le temps de la connexion.</p>
+        <div class="auth-prompt-btns">
+          <button class="btn solid" id="authPromptLogin">Se connecter</button>
+          <button class="btn solid" id="authPromptRegister">Créer un compte</button>
+        </div>
+        <button class="btn sm auth-prompt-cancel" id="authPromptCancel">Annuler</button>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    g('authPromptLogin').onclick = () => { overlay.remove(); UI.openAuth('login'); };
+    g('authPromptRegister').onclick = () => { overlay.remove(); UI.openAuth('register'); };
+    g('authPromptCancel').onclick = () => overlay.remove();
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
   }
 
   function deleteRow(id) {
@@ -694,7 +773,7 @@ const Import = (() => {
   }
 
   async function saveLine(id) {
-    if (!App.user) { UI.openAuth('login'); return; }
+    if (!App.user) { _showAuthPrompt(); return; }
     const c = _cuvees.find(x => x.id === id);
     if (!c || c.pvht === null) return;
 
@@ -730,7 +809,7 @@ const Import = (() => {
   }
 
   async function saveAll() {
-    if (!App.user) { UI.openAuth('login'); return; }
+    if (!App.user) { _showAuthPrompt(); return; }
     const toSave = _cuvees.filter(c => c.pvht !== null && !c.saved);
     if (!toSave.length) { toast('Rien à sauvegarder.'); return; }
 
