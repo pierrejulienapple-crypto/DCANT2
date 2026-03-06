@@ -32,7 +32,7 @@ const Auth = (() => {
   async function loginWithGoogle() {
     const { error } = await window.supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: 'https://dcant.netlify.app' }
+      options: { redirectTo: 'https://dcant.vercel.app' }
     });
     if (error) return { ok: false, message: _friendlyError(error.message) };
     return { ok: true };
