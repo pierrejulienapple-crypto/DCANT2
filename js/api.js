@@ -2,14 +2,15 @@
 // DCANT — Appel Claude API via proxy /api/ai
 // ═══════════════════════════════════════════
 
-async function callClaudeAPI(imageBase64, mediaType, corrections) {
+async function callClaudeAPI(images, corrections) {
+  // images = tableau de { base64, media_type }
   let learningContext = '';
   if (corrections && corrections.length > 0) {
     learningContext = `\n\nCorrections passées (apprends de ces erreurs) :\n` +
       corrections.map(c => `- "${c.original}" corrigé en "${c.corrected}" (champ: ${c.field})`).join('\n');
   }
 
-  const prompt = `Tu es un expert en analyse de tarifs de vins. Analyse ce document et extrais TOUTES les cuvées présentes.
+  const prompt = `Tu es un expert en analyse de tarifs de vins. Analyse ce document (${images.length} page${images.length > 1 ? 's' : ''}) et extrais TOUTES les cuvées présentes.
 
 Pour chaque cuvée, retourne un objet JSON avec :
 - domaine : nom du domaine/producteur
@@ -39,19 +40,20 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après, sans balise
 
 Limite à 100 cuvées maximum. Si ce n'est pas un tarif de vins, retourne { "erreur": "Ce document ne semble pas être un tarif de vins." }`;
 
+  // Construit les content blocks : une image par page + le prompt texte
+  const content = images.map(img => ({
+    type: 'image',
+    source: { type: 'base64', media_type: img.media_type, data: img.base64 }
+  }));
+  content.push({ type: 'text', text: prompt });
+
   const response = await fetch('/api/ai', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-opus-4-5',
       max_tokens: 8000,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
-          { type: 'text', text: prompt }
-        ]
-      }]
+      messages: [{ role: 'user', content }]
     })
   });
 
