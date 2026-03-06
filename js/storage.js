@@ -11,7 +11,7 @@ const Storage = (() => {
   async function getHistorique(userEmail) {
     try {
       const { data, error } = await window.supabase
-        .from('historique')
+        .from('calculs')
         .select('*')
         .eq('user_email', userEmail)
         .order('created_at', { ascending: false });
@@ -33,7 +33,7 @@ const Storage = (() => {
       };
 
       const { data, error } = await window.supabase
-        .from('historique')
+        .from('calculs')
         .insert([{
           user_email: userEmail,
           domaine: normaliseDomaine(entry.domaine),
@@ -64,7 +64,7 @@ const Storage = (() => {
   async function updateCalcul(id, updates) {
     try {
       const { error } = await window.supabase
-        .from('historique')
+        .from('calculs')
         .update({
           domaine: updates.domaine,
           cuvee: updates.cuvee,
@@ -93,7 +93,7 @@ const Storage = (() => {
   async function deleteCalcul(id) {
     try {
       const { error } = await window.supabase
-        .from('historique')
+        .from('calculs')
         .delete()
         .eq('id', id);
       if (error) throw error;

@@ -720,7 +720,7 @@ const Import = (() => {
   async function _mergeDuplicateDomains(userEmail) {
     try {
       const { data: entries } = await window.supabase
-        .from('historique')
+        .from('calculs')
         .select('id, domaine')
         .eq('user_email', userEmail);
 
@@ -740,7 +740,7 @@ const Import = (() => {
         const { canonical, ids } = groups[key];
         if (ids.length > 1 || groups[key].canonical !== entries.find(e => groups[key].ids.includes(e.id))?.domaine) {
           await window.supabase
-            .from('historique')
+            .from('calculs')
             .update({ domaine: canonical })
             .in('id', ids);
         }
