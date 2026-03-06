@@ -585,7 +585,7 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   position: fixed;
   inset: 0;
   background: rgba(28,25,23,.5);
-  z-index: 500;
+  z-index: 10001;
   align-items: center;
   justify-content: center;
   padding: 20px;
