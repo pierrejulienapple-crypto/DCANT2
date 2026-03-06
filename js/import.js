@@ -999,6 +999,7 @@ Retourne UNIQUEMENT un tableau JSON valide (même pour une seule règle) :
 
 Si quelque chose est ambigu, formule un resume qui sera montré à l'utilisateur pour confirmation. Sois précis sur les conditions (seuils, domaines, etc.).`;
 
+      await DCANT_CONFIG._keyReady;
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -1136,6 +1137,7 @@ Exemples :
 - "bouteilles à 6€ ou plus coeff 3" → operateur:"gte",valeur:6
 - "bouteilles de moins de 6€" → operateur:"lt",valeur:6`;
 
+      await DCANT_CONFIG._keyReady;
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
