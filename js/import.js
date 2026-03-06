@@ -999,15 +999,9 @@ Retourne UNIQUEMENT un tableau JSON valide (même pour une seule règle) :
 
 Si quelque chose est ambigu, formule un resume qui sera montré à l'utilisateur pour confirmation. Sois précis sur les conditions (seuils, domaines, etc.).`;
 
-      await DCANT_CONFIG._keyReady;
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/ai', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': DCANT_CONFIG.anthropic.key,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 600,
@@ -1137,15 +1131,9 @@ Exemples :
 - "bouteilles à 6€ ou plus coeff 3" → operateur:"gte",valeur:6
 - "bouteilles de moins de 6€" → operateur:"lt",valeur:6`;
 
-      await DCANT_CONFIG._keyReady;
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/ai', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': DCANT_CONFIG.anthropic.key,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 500,
