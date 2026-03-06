@@ -123,7 +123,7 @@ const Import = (() => {
         mediaType = 'image/jpeg';
       } else {
         base64 = await _fileToBase64(file);
-        mediaType = file.type;
+        mediaType = 'image/jpeg';
       }
 
       const corrections = await _getCorrections();
@@ -788,10 +788,28 @@ const Import = (() => {
 
   function _fileToBase64(file) {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 2000;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          const ratio = Math.min(MAX / w, MAX / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        resolve(dataUrl.split(',')[1]);
+        URL.revokeObjectURL(img.src);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(img.src);
+        reject(new Error('Impossible de lire cette image'));
+      };
+      img.src = URL.createObjectURL(file);
     });
   }
 
