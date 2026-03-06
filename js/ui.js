@@ -319,6 +319,13 @@ const UI = (() => {
           </div>
         </div>`;
       }).join('') + '</div>';
+
+    // Nettoie les IDs orphelins (supprimés ou filtrés) et met à jour le bouton
+    const currentIds = new Set(App.historique.map(e => e.id));
+    for (const id of App.selectedIds) {
+      if (!currentIds.has(id)) App.selectedIds.delete(id);
+    }
+    _updateDeleteBtn();
   }
 
   function toggleSel(id, checked) {
