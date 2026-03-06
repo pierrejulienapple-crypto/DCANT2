@@ -3,7 +3,7 @@
 // Requis pour l'installabilité PWA
 // ═══════════════════════════════════════════
 
-const CACHE_NAME = 'dcant-shell-v1';
+const CACHE_NAME = 'dcant-shell-v2';
 
 const SHELL_URLS = [
   '/',
@@ -29,8 +29,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Ne jamais cacher les appels API, Supabase, Anthropic
+  // Ne jamais cacher les appels API, Supabase, Anthropic, ni les fichiers JS
   if (url.pathname.startsWith('/api/') ||
+      url.pathname.endsWith('.js') ||
       url.hostname.includes('supabase') ||
       url.hostname.includes('anthropic') ||
       url.hostname.includes('googleapis') ||
