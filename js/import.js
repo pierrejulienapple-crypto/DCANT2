@@ -974,15 +974,9 @@ const Import = (() => {
         `${c.domaine} / ${c.cuvee} / ${c.millesime} / ${c.prix}€`
       ).join('\n');
 
-      const prompt = `Tu es un assistant qui interprète des instructions de calcul de marge pour un caviste.
-
-L'utilisateur a ${_cuvees.length} cuvées dans son document. Exemples :
-${sample}
-
-Instructions de l'utilisateur : "${text}"
-
-IMPORTANT : l'utilisateur peut donner PLUSIEURS règles en un seul message.
-Retourne UNIQUEMENT un tableau JSON valide (même pour une seule règle) :
+      const systemPrompt = `Tu es un assistant JSON-only qui interprète des instructions de calcul de marge pour un caviste.
+Tu ne réponds JAMAIS en texte libre. Tu retournes UNIQUEMENT un tableau JSON valide, sans aucun texte avant ou après, sans balises markdown.
+Format attendu (même pour une seule règle) :
 [
   {
     "mode": "euros" | "pct" | "coeff",
@@ -990,14 +984,18 @@ Retourne UNIQUEMENT un tableau JSON valide (même pour une seule règle) :
     "charges": { "transport": number | null, "douane": number | null },
     "condition": {
       "champ": "prix" | "domaine" | "millesime" | null,
-      "operateur": "lt" | "lte" | "gt" | "gte" | "eq" | "contains" | null,  // lte=<= gte>=
+      "operateur": "lt" | "lte" | "gt" | "gte" | "eq" | "contains" | null,
       "valeur": string | number | null
     },
     "resume": "phrase courte et claire pour cette règle, en français, commençant par un verbe à l'infinitif"
   }
 ]
-
 Si quelque chose est ambigu, formule un resume qui sera montré à l'utilisateur pour confirmation. Sois précis sur les conditions (seuils, domaines, etc.).`;
+
+      const userMsg = `${_cuvees.length} cuvées. Exemples :
+${sample}
+
+Instructions : "${text}"`;
 
       const response = await fetch('/api/ai', {
         method: 'POST',
@@ -1005,7 +1003,8 @@ Si quelque chose est ambigu, formule un resume qui sera montré à l'utilisateur
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 600,
-          messages: [{ role: 'user', content: prompt }]
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userMsg }]
         })
       });
 
@@ -1097,15 +1096,9 @@ Si quelque chose est ambigu, formule un resume qui sera montré à l'utilisateur
         `${c.domaine} / ${c.cuvee} / ${c.millesime} / ${c.prix}€`
       ).join('\n');
 
-      const prompt = `Tu es un assistant qui interprète des instructions de calcul de marge pour un caviste.
-
-L'utilisateur a ${_cuvees.length} cuvées dans son document. Exemples :
-${sample}
-
-Instructions de l'utilisateur : "${text}"
-
-IMPORTANT : l'utilisateur peut donner PLUSIEURS règles en un seul message.
-Retourne UNIQUEMENT un tableau JSON valide (même pour une seule règle) :
+      const systemPrompt = `Tu es un assistant JSON-only qui interprète des instructions de calcul de marge pour un caviste.
+Tu ne réponds JAMAIS en texte libre. Tu retournes UNIQUEMENT un tableau JSON valide, sans aucun texte avant ou après, sans balises markdown.
+Format attendu (même pour une seule règle) :
 [
   {
     "mode": "euros" | "pct" | "coeff",
@@ -1113,23 +1106,24 @@ Retourne UNIQUEMENT un tableau JSON valide (même pour une seule règle) :
     "charges": { "transport": number | null, "douane": number | null },
     "condition": {
       "champ": "prix" | "domaine" | "millesime" | null,
-      "operateur": "lt" | "lte" | "gt" | "gte" | "eq" | "contains" | null,  // lte=<= gte>=
+      "operateur": "lt" | "lte" | "gt" | "gte" | "eq" | "contains" | null,
       "valeur": string | number | null
     },
     "resume": "phrase courte pour cette règle en français"
   }
 ]
-
 Règles :
 - "mode"/"valeur" = marge de vente uniquement
 - "charges" = frais extra, null si non mentionné
 - Si aucune condition : champ/operateur/valeur = null
-
 Exemples :
 - "coeff 3 sur tout" → [{mode:"coeff",valeur:3,charges:{transport:null,douane:null},condition:{champ:null,operateur:null,valeur:null},resume:"Coefficient ×3 sur toutes les bouteilles"}]
-- "< 6€ coeff 2, >= 6€ coeff 3" → [{mode:"coeff",valeur:2,condition:{champ:"prix",operateur:"lt",valeur:6},...}, {mode:"coeff",valeur:3,condition:{champ:"prix",operateur:"gte",valeur:6},...}]
-- "bouteilles à 6€ ou plus coeff 3" → operateur:"gte",valeur:6
-- "bouteilles de moins de 6€" → operateur:"lt",valeur:6`;
+- "< 6€ coeff 2, >= 6€ coeff 3" → [{mode:"coeff",valeur:2,condition:{champ:"prix",operateur:"lt",valeur:6},...}, {mode:"coeff",valeur:3,condition:{champ:"prix",operateur:"gte",valeur:6},...}]`;
+
+      const userMsg = `${_cuvees.length} cuvées. Exemples :
+${sample}
+
+Instructions : "${text}"`;
 
       const response = await fetch('/api/ai', {
         method: 'POST',
@@ -1137,7 +1131,8 @@ Exemples :
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 500,
-          messages: [{ role: 'user', content: prompt }]
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userMsg }]
         })
       });
 
