@@ -75,8 +75,8 @@ const Import = (() => {
 
   function handleFile(file) {
     if (!file) return;
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-    if (!allowed.includes(file.type)) {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
+    if (!allowed.includes(file.type) && !file.type.startsWith('image/')) {
       toast('Format non supporté. Utilisez JPG, PNG, WebP ou PDF.');
       return;
     }
@@ -117,14 +117,23 @@ const Import = (() => {
     try {
       let base64, mediaType;
 
+      const supportedRaw = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
       if (file.type === 'application/pdf') {
         const result = await _pdfToImage(file);
         base64 = result.base64;
         mediaType = 'image/jpeg';
+      } else if (supportedRaw.includes(file.type) && file.size < 5 * 1024 * 1024) {
+        // Fichier supporté par Claude et < 5MB : envoi brut (meilleure qualité)
+        base64 = await _fileToBase64Raw(file);
+        mediaType = file.type;
       } else {
+        // HEIC, fichier trop gros, ou format exotique : conversion canvas
         base64 = await _fileToBase64(file);
         mediaType = 'image/jpeg';
       }
+
+      console.log('[DCANT] analyze:', file.name, file.type, (file.size/1024).toFixed(0)+'KB', 'base64:', (base64.length/1024).toFixed(0)+'KB', 'mediaType:', mediaType);
 
       const corrections = await _getCorrections();
       const data = await callClaudeAPI(base64, mediaType, corrections);
@@ -785,6 +794,15 @@ const Import = (() => {
   }
 
   // ── UTILITAIRES ──
+
+  function _fileToBase64Raw(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
 
   function _fileToBase64(file) {
     return new Promise((resolve, reject) => {
