@@ -1710,6 +1710,19 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 .import-td-click:active { background: var(--border); }
 .import-table tr:last-child .import-td-click { border-bottom: none; }
 .td-val { pointer-events: none; }
+.import-td-del {
+  width: 32px;
+  text-align: center;
+  color: var(--dimmer);
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.4;
+  transition: opacity .15s, color .15s;
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+.import-td-del:hover { opacity: 1; color: #c00; }
+.import-table tr:last-child .import-td-del { border-bottom: none; }
 
 /* ── CARTE SPLIT — 2 grands boutons plein écran ── */
 .wiz-split-card {

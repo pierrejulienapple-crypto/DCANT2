@@ -214,14 +214,14 @@ const Import = (() => {
       // Sérialise les alts sans guillemets qui casseraient l'attribut HTML
       const altsJson = JSON.stringify(alts).replace(/'/g, '&#39;');
       return `<td class="import-td-click${uncertain ? ' cell-uncertain' : ''}"
-        onclick="Import.editCell(${c.id},'${f}')"
+        onclick="event.stopPropagation();Import.editCell(${c.id},'${f}')"
         data-id="${c.id}" data-field="${f}"
         data-alts='${altsJson}'>
         <span class="td-val">${val}</span>${uncertain ? '<span class="cell-uncertain-dot">●</span>' : ''}
       </td>`;
     }).join('');
 
-    return `<tr id="import-row-${c.id}">${cells}</tr>`;
+    return `<tr id="import-row-${c.id}">${cells}<td class="import-td-del" onclick="event.stopPropagation();Import.deleteRow(${c.id})" title="Supprimer cette ligne">✕</td></tr>`;
   }
 
   // ── ÉDITION INLINE ──
@@ -338,6 +338,16 @@ const Import = (() => {
   function _closePop() {
     const pop = g('importPop');
     if (pop) pop.remove();
+  }
+
+  function deleteRow(id) {
+    _closePop();
+    _cuvees = _cuvees.filter(x => x.id !== id);
+    const tr = g('import-row-' + id);
+    if (tr) tr.remove();
+    const nb = g('importNbCuvees');
+    if (nb) nb.textContent = _cuvees.length + ' cuvée' + (_cuvees.length > 1 ? 's' : '') + ' détectée' + (_cuvees.length > 1 ? 's' : '');
+    _updateSaveAllBtn();
   }
 
   function _refreshRow(id) {
@@ -1422,7 +1432,7 @@ Exemples :
 
   return {
     open, close, closeBg: () => {}, onFileChange, onDrop, onDragOver, onDragLeave,
-    analyze, editCell, selectAlt, confirmEdit, closePop,
+    analyze, editCell, selectAlt, confirmEdit, closePop, deleteRow,
     toggleChargesZone, toggleMargeZone, toggleModeleZone, toggleConditionsZone,
     setImportMode, applyImportModele, applyAll,
     calcLine, saveLine, saveLineAndFade, showResDetail, saveAll, renderModeleDrop,
