@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   _initSupabase();
   _initClarity();
   _initCookieBanner();
+  PWA.init();
 
   // Bloque le scroll sur les champs numériques
   document.addEventListener('wheel', (e) => {
@@ -70,7 +71,61 @@ function _initCookieBanner() {
   }
 }
 
-// ═══ PWA Service Worker ═══
+// ═══ PWA ═══
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
+
+const PWA = (() => {
+  let _deferredPrompt = null;
+
+  function init() {
+    // Déjà fermé ?
+    if (localStorage.getItem('dc_pwa_dismissed')) return;
+    // Déjà en mode standalone (installée) ?
+    if (window.matchMedia('(display-mode: standalone)').matches) return;
+    if (window.navigator.standalone === true) return;
+
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isAndroid = /android/i.test(navigator.userAgent);
+    if (!isIOS && !isAndroid) return;
+
+    const banner = document.getElementById('pwaBanner');
+    const msg = document.getElementById('pwaBannerMsg');
+    const btn = document.getElementById('pwaBannerAction');
+    if (!banner) return;
+
+    if (isIOS) {
+      msg.textContent = 'Tapez Partager puis « Sur l\'écran d\'accueil ».';
+      btn.textContent = 'Compris';
+    } else {
+      msg.textContent = 'Ajoutez l\'app sur votre écran d\'accueil.';
+      btn.textContent = 'Installer';
+    }
+
+    // Affiche après 2s
+    setTimeout(() => banner.classList.remove('hidden'), 2000);
+  }
+
+  // Android : intercepte le prompt natif
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    _deferredPrompt = e;
+  });
+
+  function action() {
+    if (_deferredPrompt) {
+      _deferredPrompt.prompt();
+      _deferredPrompt.userChoice.then(() => { _deferredPrompt = null; });
+    }
+    dismiss();
+  }
+
+  function dismiss() {
+    localStorage.setItem('dc_pwa_dismissed', '1');
+    const banner = document.getElementById('pwaBanner');
+    if (banner) banner.classList.add('hidden');
+  }
+
+  return { init, action, dismiss };
+})();
