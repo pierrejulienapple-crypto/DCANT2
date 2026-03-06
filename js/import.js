@@ -20,6 +20,13 @@ const Import = (() => {
   let _wizExInterval = null;
   let _sessionEdits = [];
 
+  // Listener permanent pour fermer le popover quand on clique en dehors
+  // Les cellules ont event.stopPropagation() donc ce listener ne fire pas pour elles
+  document.addEventListener('click', () => {
+    const pop = document.getElementById('importPop');
+    if (pop) pop.remove();
+  });
+
   // ── OUVERTURE / FERMETURE ──
 
   function open() {
@@ -234,6 +241,8 @@ const Import = (() => {
     _updateSaveAllBtn();
   }
 
+  function _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
   function _rowHTML(c) {
     const fields = ['domaine', 'cuvee', 'appellation', 'millesime', 'prix'];
     const cells = fields.map(f => {
@@ -241,13 +250,12 @@ const Import = (() => {
       const uncertain = conf < 0.8;
       const alts = c.alternatives && c.alternatives[f] ? c.alternatives[f] : [];
       const val = c[f] !== null && c[f] !== undefined ? c[f] : '';
-      // Sérialise les alts sans guillemets qui casseraient l'attribut HTML
-      const altsJson = JSON.stringify(alts).replace(/'/g, '&#39;');
+      const altsJson = JSON.stringify(alts).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
       return `<td class="import-td-click${uncertain ? ' cell-uncertain' : ''}"
         onclick="event.stopPropagation();Import.editCell(${c.id},'${f}')"
         data-id="${c.id}" data-field="${f}"
         data-alts='${altsJson}'>
-        <span class="td-val">${val}</span>${uncertain ? '<span class="cell-uncertain-dot">●</span>' : ''}
+        <span class="td-val">${_esc(val)}</span>${uncertain ? '<span class="cell-uncertain-dot">●</span>' : ''}
       </td>`;
     }).join('');
 
@@ -278,7 +286,7 @@ const Import = (() => {
     if (suggestions.length > 0) {
       suggestHTML = `<div class="import-pop-suggestions">
         <div class="import-pop-suggest-label">Suggestion :</div>
-        ${suggestions.map(s => `<button class="import-pop-suggest" data-val="${s.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();Import.selectAlt(${id},'${field}',this.dataset.val,event)">${s}</button>`).join('')}
+        ${suggestions.map(s => `<button class="import-pop-suggest" data-val="${_esc(s)}" onclick="event.stopPropagation();Import.selectAlt(${id},'${field}',this.dataset.val,event)">${_esc(s)}</button>`).join('')}
       </div>`;
     }
 
@@ -286,7 +294,7 @@ const Import = (() => {
     if (alts.length > 0) {
       altsHTML = `<div class="import-pop-alts">
         <div class="import-pop-alts-label">L'IA hésite avec :</div>
-        ${alts.map(a => `<button class="import-pop-alt" data-val="${a.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();Import.selectAlt(${id},'${field}',this.dataset.val,event)">${a}</button>`).join('')}
+        ${alts.map(a => `<button class="import-pop-alt" data-val="${_esc(a)}" onclick="event.stopPropagation();Import.selectAlt(${id},'${field}',this.dataset.val,event)">${_esc(a)}</button>`).join('')}
       </div>`;
     }
 
@@ -294,8 +302,8 @@ const Import = (() => {
       ${suggestHTML}
       ${altsHTML}
       <div class="import-pop-field">
-        <input type="${field === 'prix' ? 'number' : 'text'}" 
-          id="importPopInput" value="${currentVal}" 
+        <input type="${field === 'prix' ? 'number' : 'text'}"
+          id="importPopInput" value="${_esc(currentVal)}"
           placeholder="Valeur correcte"
           autocomplete="off" autocorrect="off" autocapitalize="off"
           inputmode="${field === 'prix' ? 'decimal' : 'text'}"
@@ -321,10 +329,8 @@ const Import = (() => {
       scrollParent.addEventListener('scroll', _closePop, { once: true });
     }
 
-    // Ferme la popup si clic en dehors
-    setTimeout(() => {
-      document.addEventListener('click', _closePop, { once: true });
-    }, 0);
+    // Le listener permanent sur document gère la fermeture au clic extérieur
+    // (pas besoin de setTimeout + once ici)
 
     setTimeout(() => g('importPopInput')?.focus(), 50);
   }
