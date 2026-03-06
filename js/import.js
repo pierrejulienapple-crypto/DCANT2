@@ -39,6 +39,7 @@ const Import = (() => {
   }
 
   function _reset() {
+    _closePop();
     _cuvees = [];
     _appliedMode = null;
     _appliedValue = null;
@@ -260,8 +261,25 @@ const Import = (() => {
         <button class="btn sm" onclick="event.stopPropagation();Import.closePop()">Annuler</button>
       </div>`;
 
-    td.style.position = 'relative';
-    td.appendChild(pop);
+    // Position fixed dans le body pour échapper aux overflow containers
+    const rect = td.getBoundingClientRect();
+    pop.style.position = 'fixed';
+    pop.style.top = (rect.bottom + 4) + 'px';
+    pop.style.left = rect.left + 'px';
+    pop.style.zIndex = '9999';
+    document.body.appendChild(pop);
+
+    // Ferme la popup si on scrolle la carte
+    const scrollParent = td.closest('.wiz-card-body');
+    if (scrollParent) {
+      scrollParent.addEventListener('scroll', _closePop, { once: true });
+    }
+
+    // Ferme la popup si clic en dehors
+    setTimeout(() => {
+      document.addEventListener('click', _closePop, { once: true });
+    }, 0);
+
     setTimeout(() => g('importPopInput')?.focus(), 50);
   }
 

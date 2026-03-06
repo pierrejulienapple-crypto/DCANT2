@@ -1192,14 +1192,10 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 
 /* POPOVER */
 .import-popover {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
   background: var(--white);
   border: 1px solid var(--border);
   box-shadow: 0 8px 24px rgba(0,0,0,.12);
   padding: 14px;
-  z-index: 1000;
   min-width: 240px;
 }
 .import-pop-alts { margin-bottom: 12px; }
