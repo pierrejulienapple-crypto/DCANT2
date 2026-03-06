@@ -1636,6 +1636,31 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 }
 .wiz-chat-mic:hover { color: var(--text); background: var(--bg); }
 .wiz-chat-mic.recording { color: #e53e3e; background: rgba(229,62,62,.08); }
+.mic-rec-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #e53e3e;
+  background: rgba(229,62,62,.06);
+  border-top: 1px solid rgba(229,62,62,.15);
+  animation: mic-rec-fade .6s ease;
+}
+.mic-rec-dot {
+  width: 8px; height: 8px;
+  background: #e53e3e;
+  border-radius: 50%;
+  animation: mic-rec-pulse 1.2s infinite;
+}
+@keyframes mic-rec-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+@keyframes mic-rec-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 .wiz-chat-send {
   background: var(--text);
   color: var(--white);
