@@ -1843,3 +1843,9 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   padding: 14px 16px;
   margin-top: 4px;
 }
+
+/* PWA standalone — safe area pour iOS (notch/Dynamic Island) */
+@supports (padding-top: env(safe-area-inset-top)) {
+  header { padding-top: env(safe-area-inset-top); }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+}
