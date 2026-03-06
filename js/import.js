@@ -692,7 +692,8 @@ const Import = (() => {
       pvttc: r.pvttc
     };
 
-    await Storage.saveCalcul(App.user.email, entry);
+    const result = await Storage.saveCalcul(App.user.email, entry);
+    if (!result.ok) { toast('Erreur sauvegarde : ' + (result.error || 'inconnue')); return; }
     c.saved = true;
     _refreshRow(id);
     App.historique = await Storage.getHistorique(App.user.email);

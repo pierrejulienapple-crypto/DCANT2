@@ -56,8 +56,8 @@ const Storage = (() => {
       if (error) throw error;
       return { ok: true, data };
     } catch (e) {
-      console.warn('Storage.saveCalcul:', e);
-      return { ok: false };
+      console.error('Storage.saveCalcul ERREUR:', e?.message || e, e?.details || '', e?.hint || '');
+      return { ok: false, error: e?.message || String(e) };
     }
   }
 
