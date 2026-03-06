@@ -31,6 +31,7 @@ const App = {
 function g(id) { return document.getElementById(id); }
 function s(id, v) { const e = g(id); if (e) e.textContent = v; }
 function fmt(n) { return n !== null && n !== undefined && !isNaN(n) ? Number(n).toLocaleString('fr-FR', {minimumFractionDigits:2,maximumFractionDigits:2}) : '—'; }
+function esc(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function toast(msg, dur) {
   const e = g('toast');

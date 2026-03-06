@@ -1636,6 +1636,31 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 }
 .wiz-chat-mic:hover { color: var(--text); background: var(--bg); }
 .wiz-chat-mic.recording { color: #e53e3e; background: rgba(229,62,62,.08); }
+.mic-rec-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #e53e3e;
+  background: rgba(229,62,62,.06);
+  border-top: 1px solid rgba(229,62,62,.15);
+  animation: mic-rec-fade .6s ease;
+}
+.mic-rec-dot {
+  width: 8px; height: 8px;
+  background: #e53e3e;
+  border-radius: 50%;
+  animation: mic-rec-pulse 1.2s infinite;
+}
+@keyframes mic-rec-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+@keyframes mic-rec-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 .wiz-chat-send {
   background: var(--text);
   color: var(--white);
@@ -1917,6 +1942,63 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   border: 1px solid var(--border);
   padding: 14px 16px;
   margin-top: 4px;
+}
+
+/* ── BOTTOM SHEET MOBILE (édition cellule) ── */
+.bs-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.4);
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+}
+.bs-panel {
+  position: relative;
+  width: 100%;
+  background: var(--white);
+  border-radius: 16px 16px 0 0;
+  padding: 12px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  max-height: 65vh;
+  overflow-y: auto;
+  animation: bs-slide-up .25s ease;
+}
+@keyframes bs-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.bs-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 14px;
+}
+.bs-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-style: italic;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+.bs-panel .import-pop-field { margin-top: 8px; }
+.bs-panel .import-pop-field input {
+  font-size: 16px;
+  padding: 12px 14px;
+}
+.bs-panel .import-pop-foot {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+}
+.bs-panel .import-pop-foot .btn {
+  flex: 1;
+  padding: 12px 0;
+  font-size: 14px;
+}
+.bs-panel .import-pop-suggest {
+  padding: 8px 14px;
+  font-size: 14px;
 }
 
 /* PWA standalone — safe area pour iOS (notch/Dynamic Island) */

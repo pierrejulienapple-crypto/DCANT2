@@ -22,6 +22,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (user && App.currentPage === 'historique') {
       await UI.renderHistorique();
     }
+    // Restaure l'import en cours si l'utilisateur vient de se connecter
+    if (user && typeof Import !== 'undefined' && Import.restoreFromSession) {
+      Import.restoreFromSession();
+    }
   });
 
   const user = await Auth.getUser();

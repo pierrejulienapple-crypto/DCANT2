@@ -101,7 +101,7 @@ const Calcul_UI = (() => {
       let rows = `<div class="cost-row"><span>Prix achat HT</span><span>${fmt(pa)} €</span></div>`;
       if (ch.transport > 0) rows += `<div class="cost-row"><span>Transport</span><span>${fmt(ch.transport)} €</span></div>`;
       if (ch.douane > 0) rows += `<div class="cost-row"><span>Douane</span><span>${fmt(ch.douane)} €</span></div>`;
-      ch.others.forEach(o => { rows += `<div class="cost-row"><span>${o.label}</span><span>${fmt(o.val)} €</span></div>`; });
+      ch.others.forEach(o => { rows += `<div class="cost-row"><span>${esc(o.label)}</span><span>${fmt(o.val)} €</span></div>`; });
       g('costRows').innerHTML = rows;
       s('coutRevient', fmt(cr) + ' €');
     } else {
@@ -191,8 +191,8 @@ const Calcul_UI = (() => {
     )];
     if (!domains.length) { g('acBox').style.display = 'none'; return; }
     g('acBox').innerHTML = domains.slice(0, 6).map(d =>
-      `<div class="ac-item" onmousedown="Calcul_UI.selectDomain('${d.replace(/'/g, "\\'")}')">
-        ${d}
+      `<div class="ac-item" onmousedown="Calcul_UI.selectDomain('${esc(d).replace(/'/g, "\\'")}')">
+        ${esc(d)}
       </div>`
     ).join('');
     g('acBox').style.display = 'block';
@@ -212,7 +212,7 @@ const Calcul_UI = (() => {
     App.detail.editModeCalc = e.mode;
     const othersHtml = ((e.charges && e.charges.others) || []).map((o, i) =>
       `<div class="charge-edit-row" id="eo_${i}">
-        <input type="text" value="${o.label}" placeholder="Libellé" oninput="Calcul_UI.recompute()">
+        <input type="text" value="${esc(o.label)}" placeholder="Libellé" oninput="Calcul_UI.recompute()">
         <input type="number" value="${o.val}" min="0" step="0.01" oninput="Calcul_UI.recompute()">
         <span style="padding-bottom:11px;color:var(--dim)">€</span>
         <button class="del-x" onclick="Calcul_UI.removeEC('eo_${i}')">✕</button>
@@ -222,11 +222,11 @@ const Calcul_UI = (() => {
     g('detailBody').innerHTML = `
       <div class="modal-sec"><div class="modal-sec-label">Bouteille</div>
         <div class="edit-grid">
-          <div class="edit-field"><label>Domaine</label><input type="text" id="ed-dom" value="${e.domaine || ''}"></div>
-          <div class="edit-field"><label>Cuvée</label><input type="text" id="ed-cuv" value="${e.cuvee || ''}"></div>
-          <div class="edit-field"><label>Millésime</label><input type="text" id="ed-mil" value="${e.millesime || ''}" maxlength="4"></div>
+          <div class="edit-field"><label>Domaine</label><input type="text" id="ed-dom" value="${esc(e.domaine || '')}"></div>
+          <div class="edit-field"><label>Cuvée</label><input type="text" id="ed-cuv" value="${esc(e.cuvee || '')}"></div>
+          <div class="edit-field"><label>Millésime</label><input type="text" id="ed-mil" value="${esc(e.millesime || '')}" maxlength="4"></div>
         </div>
-        <div class="edit-field"><label>Commentaire</label><textarea id="ed-com">${e.commentaire || ''}</textarea></div>
+        <div class="edit-field"><label>Commentaire</label><textarea id="ed-com">${esc(e.commentaire || '')}</textarea></div>
       </div>
       <div class="modal-sec"><div class="modal-sec-label">Calcul</div>
         <div class="edit-field"><label>PA HT (€)</label><input type="number" id="ed-pa" value="${e.prix_achat}" min="0" step="0.01" oninput="Calcul_UI.recompute()"></div>
