@@ -999,10 +999,19 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 .wiz-res-doc-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-top: 1px solid var(--border); }
 
 /* Result conditions */
-.wiz-res-conds { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); margin-bottom: 14px; }
+.wiz-res-conds {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--white);
+  border: 1.5px solid var(--accent);
+  margin-bottom: 16px;
+  gap: 12px;
+}
 .wiz-res-conds-k { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dimmer); }
-.wiz-res-conds-v { font-size: 13px; color: var(--text); font-weight: 500; margin-top: 2px; }
-.wiz-res-conds-edit { background: none; border: none; font-size: 11px; color: var(--dim); cursor: pointer; font-family: var(--font-body); }
+.wiz-res-conds-v { font-size: 13px; color: var(--accent); font-weight: 600; margin-top: 3px; line-height: 1.5; }
+.wiz-res-conds-edit { background: none; border: none; font-size: 11px; color: var(--dim); cursor: pointer; font-family: var(--font-body); flex-shrink: 0; padding: 2px 0; }
 .wiz-res-conds-edit:hover { color: var(--text); }
 
 /* DROPZONE */
@@ -1783,11 +1792,11 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 /* ── RÉSULTAT WIZARD — détail inline ── */
 .res-detail-row td { padding: 0 !important; }
 .res-detail-body {
-  background: var(--white);
+  background: var(--bg);
   border-top: 1px solid var(--border);
-  border-bottom: 2px solid var(--accent);
   padding: 0 16px 16px;
   animation: res-detail-in .18s ease;
+  overflow: hidden;
 }
 @keyframes res-detail-in {
   from { opacity: 0; transform: translateY(-4px); }
@@ -1833,12 +1842,113 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   padding: 2px 8px;
 }
 
+/* Ancien rd-pvht gardé pour compat */
 .rd-pvht { margin-top: 4px; border-top: 1px solid var(--border); padding-top: 8px; }
 .rd-pvht-v {
   font-family: var(--font-display);
   font-size: 18px;
   font-style: italic;
   color: var(--text);
+}
+
+/* ── HERO PRIX DE VENTE (détail inline step 4) ── */
+.rd-hero {
+  background: var(--accent);
+  color: white;
+  text-align: center;
+  padding: 16px 14px 14px;
+  margin: 0 -16px -16px;
+}
+.rd-hero-label {
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.55);
+  margin-bottom: 4px;
+}
+.rd-hero-val {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-style: italic;
+  font-weight: 300;
+  color: white;
+  line-height: 1.2;
+}
+.rd-hero-sub {
+  font-size: 11px;
+  color: rgba(255,255,255,.6);
+  margin-top: 4px;
+}
+
+/* ── RESULT CARDS — step 4 wine rows ── */
+.rc-info {
+  cursor: pointer;
+  padding: 10px !important;
+}
+.rc-domaine {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+.rc-sub {
+  font-size: 11px;
+  color: var(--dimmer);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+.rc-achat {
+  cursor: pointer;
+  color: var(--dim) !important;
+  font-size: 12px !important;
+  white-space: nowrap;
+}
+.rc-pvht {
+  cursor: pointer;
+  text-align: right;
+}
+.rc-pvht-val {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent);
+  line-height: 1.2;
+}
+.rc-pvht-ttc {
+  font-size: 10px;
+  color: var(--dimmer);
+  margin-top: 1px;
+}
+.rc-action {
+  width: 48px;
+  text-align: center;
+  cursor: default !important;
+}
+.rc-action-alt {
+  text-align: right;
+}
+
+/* Mobile result cards */
+@media (max-width: 480px) {
+  /* Step 4 result table : cards empilées */
+  #importCard4 .import-table tr {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    grid-template-rows: auto;
+    padding: 14px 16px;
+    gap: 4px 12px;
+    align-items: center;
+  }
+  #importCard4 .import-table td { display: block; border-bottom: none; padding: 0; }
+  #importCard4 .rc-info { grid-column: 1 / -1; padding: 0 !important; margin-bottom: 6px; }
+  #importCard4 .rc-domaine { font-size: 14px; }
+  #importCard4 .rc-achat { grid-column: 1; font-size: 13px !important; }
+  #importCard4 .rc-pvht { grid-column: 2; }
+  #importCard4 .rc-pvht-val { font-size: 18px; }
+  #importCard4 .rc-pvht-ttc { font-size: 11px; }
+  #importCard4 .rc-action { grid-column: 3; width: auto; }
+  #importCard4 .rc-action-alt { grid-column: 2 / -1; text-align: right; }
+  /* Detail row hero */
+  .rd-hero { margin: 0 -16px -16px; padding: 14px 16px; }
 }
 
 /* ── TABLE CARTE 2 — toutes les cellules cliquables ── */
