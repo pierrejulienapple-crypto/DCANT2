@@ -11,6 +11,8 @@ const Import = (() => {
   let _appliedCharges = null;
   let _recognition = null;
   let _isRecording = false;
+  let _mediaRecorder = null;
+  let _audioChunks = [];
   let _currentFile = null;
   let _thumbnailUrl = null;
   let _appliedRegles = [];
@@ -264,24 +266,9 @@ const Import = (() => {
 
   // ── ÉDITION INLINE ──
 
-  function editCell(id, field) {
-    const c = _cuvees.find(x => x.id === id);
-    if (!c) return;
-    const td = document.querySelector(`td[data-id="${id}"][data-field="${field}"]`);
-    if (!td) return;
+  const _FIELD_LABELS = { domaine: 'Domaine', cuvee: 'Cuvée', appellation: 'Appellation', millesime: 'Millésime', prix: 'Prix' };
 
-    const alts = JSON.parse(td.dataset.alts || '[]');
-    const currentVal = c[field] !== null ? String(c[field]) : '';
-
-    // Crée le popover
-    _closePop();
-    const pop = document.createElement('div');
-    pop.className = 'import-popover';
-    pop.id = 'importPop';
-    pop.addEventListener('click', e => e.stopPropagation());
-
-    // Suggestions basées sur les éditions précédentes de la session
-    const suggestions = _getSuggestions(field, currentVal);
+  function _editContentHTML(id, field, currentVal, suggestions, alts) {
     let suggestHTML = '';
     if (suggestions.length > 0) {
       suggestHTML = `<div class="import-pop-suggestions">
@@ -289,7 +276,6 @@ const Import = (() => {
         ${suggestions.map(s => `<button class="import-pop-suggest" data-val="${_esc(s)}" onclick="event.stopPropagation();Import.selectAlt(${id},'${field}',this.dataset.val,event)">${_esc(s)}</button>`).join('')}
       </div>`;
     }
-
     let altsHTML = '';
     if (alts.length > 0) {
       altsHTML = `<div class="import-pop-alts">
@@ -297,10 +283,7 @@ const Import = (() => {
         ${alts.map(a => `<button class="import-pop-alt" data-val="${_esc(a)}" onclick="event.stopPropagation();Import.selectAlt(${id},'${field}',this.dataset.val,event)">${_esc(a)}</button>`).join('')}
       </div>`;
     }
-
-    pop.innerHTML = `
-      ${suggestHTML}
-      ${altsHTML}
+    return `${suggestHTML}${altsHTML}
       <div class="import-pop-field">
         <input type="${field === 'prix' ? 'number' : 'text'}"
           id="importPopInput" value="${_esc(currentVal)}"
@@ -314,8 +297,45 @@ const Import = (() => {
         <button class="btn solid sm" onclick="event.stopPropagation();Import.confirmEdit(${id},'${field}')">Valider</button>
         <button class="btn sm" onclick="event.stopPropagation();Import.closePop()">Annuler</button>
       </div>`;
+  }
 
-    // Position fixed dans le body pour échapper aux overflow containers
+  function editCell(id, field) {
+    const c = _cuvees.find(x => x.id === id);
+    if (!c) return;
+    const td = document.querySelector(`td[data-id="${id}"][data-field="${field}"]`);
+    if (!td) return;
+
+    const alts = JSON.parse(td.dataset.alts || '[]');
+    const currentVal = c[field] !== null ? String(c[field]) : '';
+    const suggestions = _getSuggestions(field, currentVal);
+
+    _closePop();
+
+    // Mobile : bottom sheet
+    if (window.innerWidth <= 480) {
+      const overlay = document.createElement('div');
+      overlay.className = 'bs-overlay';
+      overlay.id = 'importPop';
+      const panel = document.createElement('div');
+      panel.className = 'bs-panel';
+      panel.addEventListener('click', e => e.stopPropagation());
+      panel.innerHTML = `<div class="bs-handle"></div>
+        <div class="bs-title">${_FIELD_LABELS[field] || field}</div>
+        ${_editContentHTML(id, field, currentVal, suggestions, alts)}`;
+      overlay.appendChild(panel);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) _closePop(); });
+      document.body.appendChild(overlay);
+      setTimeout(() => g('importPopInput')?.focus(), 100);
+      return;
+    }
+
+    // Desktop : popover classique
+    const pop = document.createElement('div');
+    pop.className = 'import-popover';
+    pop.id = 'importPop';
+    pop.addEventListener('click', e => e.stopPropagation());
+    pop.innerHTML = _editContentHTML(id, field, currentVal, suggestions, alts);
+
     const rect = td.getBoundingClientRect();
     pop.style.position = 'fixed';
     pop.style.top = (rect.bottom + 4) + 'px';
@@ -323,14 +343,10 @@ const Import = (() => {
     pop.style.zIndex = '9999';
     document.body.appendChild(pop);
 
-    // Ferme la popup si on scrolle la carte
     const scrollParent = td.closest('.wiz-card-body');
     if (scrollParent) {
       scrollParent.addEventListener('scroll', _closePop, { once: true });
     }
-
-    // Le listener permanent sur document gère la fermeture au clic extérieur
-    // (pas besoin de setTimeout + once ici)
 
     setTimeout(() => g('importPopInput')?.focus(), 50);
   }
@@ -427,10 +443,70 @@ const Import = (() => {
     if (pop) pop.remove();
   }
 
+  function _saveStateToSession() {
+    try {
+      sessionStorage.setItem('dcant_import_state', JSON.stringify({
+        cuvees: _cuvees,
+        appliedMode: _appliedMode,
+        appliedValue: _appliedValue,
+        appliedCharges: _appliedCharges,
+        appliedRegles: _appliedRegles,
+        sessionEdits: _sessionEdits,
+        wizCur: _wizCur,
+        instrText: g('importInstrInput')?.value || ''
+      }));
+    } catch (e) { console.warn('sessionStorage save failed:', e); }
+  }
+
+  function _restoreFromSession() {
+    try {
+      const raw = sessionStorage.getItem('dcant_import_state');
+      if (!raw) return false;
+      const state = JSON.parse(raw);
+      sessionStorage.removeItem('dcant_import_state');
+      if (!state.cuvees || !state.cuvees.length) return false;
+
+      _cuvees = state.cuvees;
+      _appliedMode = state.appliedMode;
+      _appliedValue = state.appliedValue;
+      _appliedCharges = state.appliedCharges;
+      _appliedRegles = state.appliedRegles || [];
+      _sessionEdits = state.sessionEdits || [];
+
+      // Ouvre le wizard et va à l'étape sauvegardée
+      g('importOverlay').classList.add('open');
+      document.body.style.overflow = 'hidden';
+      // Active d'abord la carte 1 pour que wizGo puisse transitionner
+      const card1 = g('importCard1');
+      if (card1) card1.classList.add('active');
+      _wizCur = 1;
+      const targetStep = state.wizCur || 4;
+      wizGo(targetStep);
+
+      // Re-rend le tableau si on est à l'étape 2 ou 4
+      setTimeout(() => {
+        _renderTable();
+        // Restaure le texte d'instruction si on est à l'étape 3
+        if (state.instrText) {
+          const inp = g('importInstrInput');
+          if (inp) inp.value = state.instrText;
+        }
+      }, 100);
+
+      return true;
+    } catch (e) {
+      console.warn('sessionStorage restore failed:', e);
+      return false;
+    }
+  }
+
   function _showAuthPrompt() {
     // Ferme un éventuel prompt précédent
     const old = g('authPromptOverlay');
     if (old) old.remove();
+
+    // Sauvegarde l'état import avant ouverture auth
+    _saveStateToSession();
 
     const overlay = document.createElement('div');
     overlay.className = 'auth-prompt-overlay';
@@ -969,7 +1045,76 @@ const Import = (() => {
     if (g('importInstrResult')) g('importInstrResult').style.display = 'none';
   }
 
-  function _startRecording() {
+  function _setMicUI(recording) {
+    _isRecording = recording;
+    const btn = g('importMicBtn');
+    if (!btn) return;
+    if (recording) {
+      btn.classList.add('recording');
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
+    } else {
+      btn.classList.remove('recording');
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`;
+    }
+  }
+
+  async function _startRecording() {
+    // Essaye Whisper (MediaRecorder) en priorité
+    if (navigator.mediaDevices && typeof MediaRecorder !== 'undefined') {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Choisit un mime supporté (mp4 pour iOS Safari, webm sinon)
+        const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/mp4';
+        _mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
+        _audioChunks = [];
+
+        _mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) _audioChunks.push(e.data);
+        };
+
+        _mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(_audioChunks, { type: mime });
+          _audioChunks = [];
+          _setMicUI(false);
+
+          // Convertit en base64 et envoie à Whisper
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            const base64 = reader.result.split(',')[1];
+            try {
+              toast('Transcription en cours…');
+              const resp = await fetch('/api/whisper', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ audio: base64, mime })
+              });
+              const data = await resp.json();
+              if (!resp.ok) throw new Error(data.error || 'Erreur Whisper');
+              const input = g('importInstrInput');
+              if (input && data.text) {
+                const existing = input.value.trimEnd();
+                input.value = existing ? existing + ' ' + data.text : data.text;
+              }
+            } catch (err) {
+              console.error('Whisper error:', err);
+              toast('Erreur de transcription. Réessayez.');
+            }
+          };
+          reader.readAsDataURL(blob);
+        };
+
+        _mediaRecorder.start();
+        _setMicUI(true);
+        return;
+      } catch (err) {
+        console.warn('MediaRecorder fallback to Web Speech:', err);
+      }
+    }
+
+    // Fallback : Web Speech API
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       toast('Dictée non supportée sur ce navigateur. Tapez vos instructions.');
@@ -978,25 +1123,14 @@ const Import = (() => {
 
     _recognition = new SpeechRecognition();
     _recognition.lang = 'fr-FR';
-    _recognition.continuous = true;   // continue tant qu'on ne stop pas
+    _recognition.continuous = true;
     _recognition.interimResults = true;
-
-    // Conserve le texte déjà tapé avant de commencer
     const existingText = (g('importInstrInput')?.value || '').trimEnd();
 
-    _recognition.onstart = () => {
-      _isRecording = true;
-      const btn = g('importMicBtn');
-      if (btn) {
-        btn.classList.add('recording');
-        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
-      }
-    };
+    _recognition.onstart = () => _setMicUI(true);
 
     _recognition.onresult = (e) => {
-      // Reconstruit uniquement les résultats de cette session
-      let interim = '';
-      let final = '';
+      let interim = '', final = '';
       for (let i = 0; i < e.results.length; i++) {
         if (e.results[i].isFinal) final += e.results[i][0].transcript;
         else interim += e.results[i][0].transcript;
@@ -1006,20 +1140,12 @@ const Import = (() => {
     };
 
     _recognition.onend = () => {
-      // onend déclenché automatiquement : ne remet pas à zéro, juste stop l'UI
-      _isRecording = false;
-      const btn = g('importMicBtn');
-      if (btn) {
-        btn.classList.remove('recording');
-        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`;
-      }
+      _setMicUI(false);
       _recognition = null;
     };
 
     _recognition.onerror = (ev) => {
-      if (ev.error !== 'no-speech') {
-        toast('Erreur de dictée. Réessayez ou tapez vos instructions.');
-      }
+      if (ev.error !== 'no-speech') toast('Erreur de dictée. Réessayez.');
       _stopRecording();
     };
 
@@ -1027,11 +1153,15 @@ const Import = (() => {
   }
 
   function _stopRecording() {
+    if (_mediaRecorder && _mediaRecorder.state !== 'inactive') {
+      _mediaRecorder.stop();
+      _mediaRecorder = null;
+      return;
+    }
     if (_recognition) {
       try { _recognition.stop(); } catch(e) {}
-      // onend s'occupera du cleanup UI
     } else {
-      _isRecording = false;
+      _setMicUI(false);
     }
   }
 
@@ -1576,7 +1706,8 @@ Instructions : "${text}"`;
     wizGo, wizGoVerif, wizGoToStep3, wizGoInstr, wizChooseModele, wizHideModelePanel, wizApplyModeleAndCalc, wizSkipTuto, wizDismissTuto, wizSendInstr, wizEditInstr, wizConfirmAndCalc, wizChatAutosize,
     wizChoose, wizGoMethod, wizFillEx,
     wizApplyDictee, wizApplyManuel,
-    resetInstr
+    resetInstr,
+    restoreFromSession: _restoreFromSession
   };
 
 })();

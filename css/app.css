@@ -1919,6 +1919,63 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   margin-top: 4px;
 }
 
+/* ── BOTTOM SHEET MOBILE (édition cellule) ── */
+.bs-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.4);
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+}
+.bs-panel {
+  position: relative;
+  width: 100%;
+  background: var(--white);
+  border-radius: 16px 16px 0 0;
+  padding: 12px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  max-height: 65vh;
+  overflow-y: auto;
+  animation: bs-slide-up .25s ease;
+}
+@keyframes bs-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.bs-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 14px;
+}
+.bs-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-style: italic;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+.bs-panel .import-pop-field { margin-top: 8px; }
+.bs-panel .import-pop-field input {
+  font-size: 16px;
+  padding: 12px 14px;
+}
+.bs-panel .import-pop-foot {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+}
+.bs-panel .import-pop-foot .btn {
+  flex: 1;
+  padding: 12px 0;
+  font-size: 14px;
+}
+.bs-panel .import-pop-suggest {
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
 /* PWA standalone — safe area pour iOS (notch/Dynamic Island) */
 @supports (padding-top: env(safe-area-inset-top)) {
   header { padding-top: env(safe-area-inset-top); }
