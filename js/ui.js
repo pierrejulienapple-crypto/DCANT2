@@ -359,20 +359,18 @@ const UI = (() => {
     const ids = [...App.selectedIds];
     if (!ids.length) return;
     const n = ids.length;
-    const label = n === 1 ? 'cette cuvée' : `ces ${n} cuvées`;
-    askConfirm(`Supprimer ${label} ?`, async () => {
-      // Cache le bouton immédiatement
-      g('histActions').style.display = 'none';
-      App.selectedIds.clear();
+    if (!window.confirm(`Supprimer ${n === 1 ? 'cette cuvée' : 'ces ' + n + ' cuvées'} ?`)) return;
 
-      let ok = 0;
-      for (const id of ids) {
-        const result = await Storage.deleteCalcul(id);
-        if (result.ok) { ok++; App.historique = App.historique.filter(h => h.id !== id); }
-      }
-      await renderHistorique();
-      toast(ok + ' cuvée' + (ok > 1 ? 's' : '') + ' supprimée' + (ok > 1 ? 's' : ''));
-    });
+    g('histActions').style.display = 'none';
+    App.selectedIds.clear();
+
+    let ok = 0;
+    for (const id of ids) {
+      const result = await Storage.deleteCalcul(id);
+      if (result.ok) { ok++; App.historique = App.historique.filter(h => h.id !== id); }
+    }
+    await renderHistorique();
+    toast(ok + ' cuvée' + (ok > 1 ? 's' : '') + ' supprimée' + (ok > 1 ? 's' : ''));
   }
 
   function toggleDom(hd) {
