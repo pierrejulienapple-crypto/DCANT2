@@ -43,7 +43,7 @@ Limite à 100 cuvées maximum. Si ce n'est pas un tarif de vins, retourne { "err
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5-20241022',
+      model: 'claude-3-5-sonnet-20241022',
       max_tokens: 8000,
       messages: [{
         role: 'user',
