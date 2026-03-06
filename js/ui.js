@@ -350,7 +350,7 @@ const UI = (() => {
     const btn = g('histActions');
     if (!btn) return;
     const n = App.selectedIds.size;
-    btn.style.display = n > 0 ? 'flex' : 'none';
+    if (n > 0) { btn.classList.add('visible'); } else { btn.classList.remove('visible'); }
     const delBtn = g('histDeleteBtn');
     if (delBtn) delBtn.textContent = `Supprimer (${n})`;
   }
@@ -361,7 +361,7 @@ const UI = (() => {
     const n = ids.length;
     if (!window.confirm(`Supprimer ${n === 1 ? 'cette cuvée' : 'ces ' + n + ' cuvées'} ?`)) return;
 
-    g('histActions').style.display = 'none';
+    g('histActions').classList.remove('visible');
     App.selectedIds.clear();
 
     let ok = 0;

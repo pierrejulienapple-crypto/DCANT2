@@ -372,7 +372,8 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 .hist-count { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--dimmer); flex: 1; }
 .filters { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
 .filter-input { flex: 1; min-width: 100px; font-size: 13px; padding: 6px 0 !important; border-bottom: 1px solid var(--border) !important; }
-.hist-actions { display: flex; align-items: center; gap: 8px; }
+.hist-actions { display: none; align-items: center; gap: 8px; }
+.hist-actions.visible { display: flex; }
 .hist-actions-export { display: flex; gap: 8px; margin-left: auto; }
 .btn.danger { border-color: #e53e3e; color: #e53e3e; }
 .btn.danger:hover { background: #e53e3e; color: white; }
