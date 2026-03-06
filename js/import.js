@@ -145,7 +145,9 @@ const Import = (() => {
       console.log('[DCANT] analyze:', file.name, file.type, (file.size/1024).toFixed(0)+'KB', images.length+'img(s)', 'total base64:', (totalB64/1024).toFixed(0)+'KB');
 
       const corrections = await _getCorrections();
-      const data = await callClaudeAPI(images, corrections);
+      const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const isPhoto = isMobile || (file.type === 'image/jpeg' && file.size > 2 * 1024 * 1024);
+      const data = await callClaudeAPI(images, corrections, { isPhoto: isPhoto && file.type !== 'application/pdf' });
 
       if (spinner) spinner.style.display = 'none';
 

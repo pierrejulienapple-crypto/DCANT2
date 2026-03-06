@@ -2,17 +2,37 @@
 // DCANT — Appel Claude API via proxy /api/ai
 // ═══════════════════════════════════════════
 
-async function callClaudeAPI(images, corrections) {
+async function callClaudeAPI(images, corrections, options) {
   // images = tableau de { base64, media_type }
+  // options = { isPhoto: bool } — indique si c'est une photo prise au téléphone
+  options = options || {};
+
   let learningContext = '';
   if (corrections && corrections.length > 0) {
     learningContext = `\n\nCorrections passées (apprends de ces erreurs) :\n` +
       corrections.map(c => `- "${c.original}" corrigé en "${c.corrected}" (champ: ${c.field})`).join('\n');
   }
 
+  // Instructions supplémentaires pour les photos de documents
+  const photoContext = options.isPhoto ? `
+
+ATTENTION — PHOTO DE DOCUMENT : Cette image est une photo prise avec un téléphone, pas un PDF numérique. Elle peut contenir :
+- Du flou, de la distorsion de perspective, des ombres
+- Du texte partiellement coupé ou incliné
+- Des reflets ou un éclairage inégal
+- Des colonnes de prix mal alignées
+
+Stratégie de lecture :
+1. Identifie d'abord la STRUCTURE du document (colonnes, lignes, en-têtes)
+2. Lis ligne par ligne en suivant la structure identifiée
+3. Pour les prix, cherche des patterns numériques (xx,xx ou xx.xx) alignés en colonne
+4. Si un mot est illisible, déduis-le du contexte viticole (appellations connues, domaines courants)
+5. Privilégie la QUANTITÉ : extrais tous les vins visibles même partiellement, avec des scores de confiance bas si nécessaire
+6. Ne saute AUCUNE ligne — mieux vaut une extraction incertaine qu'une omission` : '';
+
   const prompt = `Tu es un expert en vins. Analyse cette image (${images.length} page${images.length > 1 ? 's' : ''}).
 
-OBJECTIF : Extraire tous les vins mentionnés avec leurs prix. Le document peut être un tarif, une facture, un bon de commande, un catalogue, une carte des vins, un mail, ou tout autre document contenant des vins et des prix. Même si l'image est floue ou de mauvaise qualité, fais de ton mieux pour extraire les informations visibles.
+OBJECTIF : Extraire tous les vins mentionnés avec leurs prix. Le document peut être un tarif, une facture, un bon de commande, un catalogue, une carte des vins, un mail, ou tout autre document contenant des vins et des prix. Même si l'image est floue ou de mauvaise qualité, fais de ton mieux pour extraire les informations visibles.${photoContext}
 
 Pour chaque vin trouvé, retourne :
 - domaine : nom du domaine/producteur
