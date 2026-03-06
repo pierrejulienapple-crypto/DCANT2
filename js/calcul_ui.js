@@ -153,6 +153,7 @@ const Calcul_UI = (() => {
     const entry = {
       domaine: g('domaine')?.value || '',
       cuvee: g('cuvee')?.value || '',
+      appellation: g('appellation')?.value || '',
       millesime: g('millesime')?.value || '',
       commentaire: g('commentaire')?.value || '',
       prixAchat: pa, charges: ch, cr,
@@ -170,7 +171,7 @@ const Calcul_UI = (() => {
   }
 
   function resetForm() {
-    ['domaine', 'cuvee', 'millesime', 'commentaire', 'prixAchat', 'modeValue', 'transport', 'douane']
+    ['domaine', 'cuvee', 'appellation', 'millesime', 'commentaire', 'prixAchat', 'modeValue', 'transport', 'douane']
       .forEach(id => { if (g(id)) g(id).value = ''; });
     g('otherCharges').innerHTML = '';
     _clearRes();
