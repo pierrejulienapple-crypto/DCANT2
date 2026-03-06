@@ -38,6 +38,7 @@ const Storage = (() => {
           user_id: userId,
           domaine: normaliseDomaine(entry.domaine),
           cuvee: entry.cuvee || '',
+          appellation: entry.appellation || '',
           millesime: entry.millesime || '',
           commentaire: entry.commentaire || '',
           prix_achat: entry.prixAchat,
@@ -68,6 +69,7 @@ const Storage = (() => {
         .update({
           domaine: updates.domaine,
           cuvee: updates.cuvee,
+          appellation: updates.appellation,
           millesime: updates.millesime,
           commentaire: updates.commentaire,
           prix_achat: updates.prixAchat,

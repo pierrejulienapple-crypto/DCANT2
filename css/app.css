@@ -412,6 +412,7 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 .entry-check { flex-shrink: 0; }
 .entry-left { flex: 1; min-width: 0; }
 .entry-cuvee { font-size: 14px; font-weight: 500; color: var(--text); }
+.entry-appellation { font-size: 12px; font-weight: 400; color: var(--dim); }
 .entry-sub { font-size: 12px; color: var(--dimmer); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
 .badge { font-size: 10px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--dimmer); border: 1px solid var(--border); padding: 1px 5px; }
 .entry-right { display: flex; align-items: center; gap: 12px; text-align: right; }
@@ -959,7 +960,7 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 .wiz-btn-next { flex: 1; background: var(--text); color: white; border: none; padding: 14px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; font-family: var(--font-body); transition: opacity .15s; }
 .wiz-btn-next:hover { opacity: .85; }
 .wiz-btn-next:disabled { opacity: .25; cursor: default; }
-.wiz-btn-green { background: #2d6a4f; }
+.wiz-btn-green { background: var(--accent, #1a2744); }
 
 /* Formats hint */
 .wiz-formats { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--dimmer); }

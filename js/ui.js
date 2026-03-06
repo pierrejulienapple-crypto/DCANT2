@@ -302,7 +302,7 @@ const UI = (() => {
                     onchange="UI.toggleSel('${e.id}',this.checked)">
                 </div>
                 <div class="entry-left">
-                  <div class="entry-cuvee">${e.cuvee || '—'}</div>
+                  <div class="entry-cuvee">${e.cuvee || '—'}${e.appellation ? ` <span class="entry-appellation">${e.appellation}</span>` : ''}</div>
                   <div class="entry-sub">${e.millesime || ''} <span class="badge">${e.mode}</span>
                     ${new Date(e.created_at).toLocaleDateString('fr-FR')}</div>
                 </div>

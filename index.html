@@ -74,6 +74,11 @@
     </div>
 
     <div class="field">
+      <label class="field-label">Appellation <span class="field-opt">— facultatif</span></label>
+      <input type="text" id="appellation" placeholder="Savigny-lès-Beaune 1er Cru" oninput="Calcul_UI.compute()">
+    </div>
+
+    <div class="field">
       <label class="field-label">Commentaire <span class="field-opt">— facultatif</span></label>
       <textarea id="commentaire" placeholder="Notes, fournisseur, cave…"></textarea>
     </div>
@@ -295,7 +300,7 @@
         <div class="import-table-wrap">
           <table class="import-table">
             <thead>
-              <tr><th>Domaine</th><th>Cuvée</th><th>Mill.</th><th>Prix HT</th><th></th></tr>
+              <tr><th>Domaine</th><th>Cuvée</th><th>Appell.</th><th>Mill.</th><th>Prix HT</th><th></th></tr>
             </thead>
             <tbody id="importTbody"></tbody>
           </table>

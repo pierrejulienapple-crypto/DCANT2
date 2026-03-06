@@ -205,7 +205,7 @@ const Import = (() => {
   }
 
   function _rowHTML(c) {
-    const fields = ['domaine', 'cuvee', 'millesime', 'prix'];
+    const fields = ['domaine', 'cuvee', 'appellation', 'millesime', 'prix'];
     const cells = fields.map(f => {
       const conf = c.confiance ? (c.confiance[f] || 1) : 1;
       const uncertain = conf < 0.8;
@@ -678,6 +678,7 @@ const Import = (() => {
     const entry = {
       domaine: c.domaine || '',
       cuvee: c.cuvee || '',
+      appellation: c.appellation || '',
       millesime: c.millesime || '',
       commentaire: g('importInstrInput')?.value?.trim() || '',
       prixAchat: c.prix || 0,
@@ -1359,7 +1360,7 @@ Instructions : "${text}"`;
         return `<tr id="import-res-row-${c.id}">
           <td class="res-row-detail-cell" onclick="Import.showResDetail(${c.id})" style="cursor:pointer">
             <strong style="font-size:12px">${c.domaine || '—'}</strong>
-            <br><span style="font-size:11px;color:var(--dimmer)">${c.cuvee || ''} ${c.millesime || ''}</span>
+            <br><span style="font-size:11px;color:var(--dimmer)">${c.cuvee || ''} ${c.appellation ? '· ' + c.appellation : ''} ${c.millesime || ''}</span>
           </td>
           <td class="res-row-detail-cell" onclick="Import.showResDetail(${c.id})" style="cursor:pointer;color:var(--dim);font-size:12px">${c.prix ? fmt(c.prix) + ' €' : '—'}</td>
           <td class="res-row-detail-cell" onclick="Import.showResDetail(${c.id})" style="cursor:pointer">${pvHtml}</td>
@@ -1368,7 +1369,7 @@ Instructions : "${text}"`;
       } else {
         // Pas de PV calculé — propose de dicter une instruction spécifique
         return `<tr id="import-res-row-${c.id}" class="import-row-uncalc">
-          <td><strong style="font-size:12px">${c.domaine || '—'}</strong><br><span style="font-size:11px;color:var(--dimmer)">${c.cuvee || ''} ${c.millesime || ''}</span></td>
+          <td><strong style="font-size:12px">${c.domaine || '—'}</strong><br><span style="font-size:11px;color:var(--dimmer)">${c.cuvee || ''} ${c.appellation ? '· ' + c.appellation : ''} ${c.millesime || ''}</span></td>
           <td style="color:var(--dim);font-size:12px">${c.prix ? fmt(c.prix) + ' €' : '—'}</td>
           <td colspan="2"><button class="btn sm" style="font-size:11px" onclick="Import.wizGo('3a');setTimeout(()=>{ const ta=g('importInstrInput'); if(ta) ta.value='Pour ${(c.domaine||'').replace(/'/g,"\'")} : '; },300)">+ Instruction</button></td>
         </tr>`;

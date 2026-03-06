@@ -14,6 +14,7 @@ async function callClaudeAPI(imageBase64, mediaType, corrections) {
 Pour chaque cuvée, retourne un objet JSON avec :
 - domaine : nom du domaine/producteur
 - cuvee : nom de la cuvée (peut être vide)
+- appellation : appellation d'origine (AOC/AOP/IGP, ex: "Savigny-lès-Beaune 1er Cru", "Côtes du Rhône") — peut être vide
 - millesime : année (peut être vide)
 - prix : prix d'achat HT en nombre décimal
 - confiance : objet avec un score de 0 à 1 pour chaque champ (1 = très sûr, 0.5 = incertain)
@@ -25,9 +26,10 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après, sans balise
     {
       "domaine": "Nom domaine",
       "cuvee": "Nom cuvée",
+      "appellation": "Appellation",
       "millesime": "2020",
       "prix": 12.50,
-      "confiance": { "domaine": 0.95, "cuvee": 0.9, "millesime": 0.8, "prix": 0.99 },
+      "confiance": { "domaine": 0.95, "cuvee": 0.9, "appellation": 0.85, "millesime": 0.8, "prix": 0.99 },
       "alternatives": { "millesime": ["2019", "2021"] }
     }
   ],
