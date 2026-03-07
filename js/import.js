@@ -397,6 +397,19 @@ const Import = (() => {
         const s = cv.replace(/^\S+\s+/, '');
         if (s !== cv && s.length > 0) suggestions.push(s);
       }
+
+      // Remplacement exact : si oldVal se retrouve dans cv, proposer le remplacement
+      // Ex: edit "rouge"→"red", cv contient "rouge" → proposer avec "red"
+      if (edit.oldVal.length > 1 && cv.includes(edit.oldVal)) {
+        suggestions.push(cv.replace(edit.oldVal, edit.newVal));
+      }
+
+      // Valeur identique directe : si l'utilisateur a toujours mis la même newVal
+      // pour ce champ, proposer cette valeur
+      if (edit.newVal && edit.newVal !== cv) {
+        const sameEdits = _sessionEdits.filter(e => e.field === field && e.newVal === edit.newVal);
+        if (sameEdits.length >= 2) suggestions.push(edit.newVal);
+      }
     }
     // Dédupliquer et filtrer
     return [...new Set(suggestions)].filter(s => s !== cv && s.length > 0);
