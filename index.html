@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&family=Caveat:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-<link rel="stylesheet" href="css/app.css?v=27">
+<link rel="stylesheet" href="css/app.css?v=28">
 </head>
 <body>
 
@@ -628,7 +628,7 @@
 <script src="js/import-upload.js?v=15"></script>
 <script src="js/import-voice.js?v=16"></script>
 <script src="js/import.js?v=16"></script>
-<script src="js/export.js?v=27"></script>
+<script src="js/export.js?v=28"></script>
 <script src="js/calcul_ui.js?v=15"></script>
 <script src="js/ui.js?v=15"></script>
 <script src="js/app.js?v=15"></script>
@@ -772,13 +772,16 @@
         <!-- Éditeur inline pour la colonne sélectionnée -->
         <div class="export-map-editor" id="exportMapEditor" style="display:none">
           <div class="export-map-editor-title" id="exportMapEditorTitle"></div>
-          <div class="export-map-editor-row">
-            <label class="export-map-editor-label">Champ DCANT</label>
-            <select class="export-map-select" id="exportMapEditorSelect" onchange="Export.editorChangeMapping(this.value)"></select>
+          <div class="export-map-editor-section">
+            <label class="export-map-editor-label">Champs DCANT (cliquez pour s&eacute;lectionner)</label>
+            <div class="export-col-pills export-map-field-pills" id="exportMapEditorFields"></div>
           </div>
-          <div class="export-map-editor-row" id="exportMapEditorDefaultRow" style="display:none">
-            <label class="export-map-editor-label">Valeur par d&eacute;faut</label>
-            <input type="text" class="export-map-input" id="exportMapEditorDefault" placeholder="Valeur fixe pour cette colonne" oninput="Export.editorSetDefault(this.value)">
+          <div class="export-map-editor-section">
+            <label class="export-map-editor-label">Ou valeur par d&eacute;faut</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="text" class="export-map-input" id="exportMapEditorDefault" placeholder="Valeur fixe pour cette colonne" style="flex:1">
+              <button class="btn solid sm" onclick="Export.editorValidate()">Valider</button>
+            </div>
           </div>
         </div>
 

@@ -2172,6 +2172,25 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 }
 .export-map-pill-icon { font-size: 12px; flex-shrink: 0; }
 
+/* ── Small pills (DCANT field selection in editor) ── */
+.export-opt-pill-sm {
+  padding: 5px 10px;
+  font-size: 11px;
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  background: var(--white);
+  font-family: var(--font-body);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.export-opt-pill-sm:hover { border-color: var(--accent); }
+.export-opt-pill-sm.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+}
+
 /* Éditeur inline mapping */
 .export-map-editor {
   margin-top: 16px;
@@ -2184,6 +2203,16 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   font-weight: 600;
   color: var(--text);
   margin-bottom: 12px;
+}
+.export-map-editor-section {
+  margin-bottom: 12px;
+}
+.export-map-editor-section:last-child { margin-bottom: 0; }
+.export-map-field-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
 }
 .export-map-editor-row {
   display: flex;
