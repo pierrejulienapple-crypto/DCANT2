@@ -65,7 +65,12 @@ function acceptCookies() {
 async function authHeaders() {
   const h = { 'Content-Type': 'application/json' };
   try {
-    const { data } = await window.supabase.auth.getSession();
+    let { data } = await window.supabase.auth.getSession();
+    // Si le token est expiré, forcer un refresh
+    if (data?.session?.expires_at && data.session.expires_at < Math.floor(Date.now() / 1000) + 30) {
+      const refresh = await window.supabase.auth.refreshSession();
+      if (refresh.data?.session) data = refresh.data;
+    }
     if (data?.session?.access_token) {
       h['Authorization'] = 'Bearer ' + data.session.access_token;
     }

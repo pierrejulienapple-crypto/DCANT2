@@ -12,15 +12,15 @@ export const config = {
 function verifyJWT(token, secret) {
   try {
     const parts = token.split('.');
-    if (parts.length !== 3) return null;
+    if (parts.length !== 3) return { error: 'malformed' };
     const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString());
-    if (header.alg !== 'HS256') return null;
+    if (header.alg !== 'HS256') return { error: 'bad_alg' };
     const sig = crypto.createHmac('sha256', secret).update(parts[0] + '.' + parts[1]).digest('base64url');
-    if (sig !== parts[2]) return null;
+    if (sig !== parts[2]) return { error: 'bad_signature' };
     const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
-    return payload;
-  } catch (e) { return null; }
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return { error: 'expired', exp: payload.exp, now: Math.floor(Date.now() / 1000) };
+    return { payload };
+  } catch (e) { return { error: 'parse_error' }; }
 }
 
 export default async function handler(req, res) {
@@ -42,9 +42,9 @@ export default async function handler(req, res) {
     if (!auth || !auth.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Authentication required' });
     }
-    const payload = verifyJWT(auth.slice(7), jwtSecret);
-    if (!payload) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
+    const result = verifyJWT(auth.slice(7), jwtSecret);
+    if (result.error) {
+      return res.status(401).json({ error: 'Invalid or expired token', reason: result.error, detail: result });
     }
   }
 
