@@ -602,7 +602,8 @@ const Export = (() => {
         '<div class="export-default-popup-sub">O\u00f9 placer cette valeur par rapport \u00e0 <b>' + _esc(fields) + '</b> ?</div>' +
         '<button class="btn solid sm" style="width:100%;margin-bottom:8px" onclick="Export.setDefaultPosition(\'before\')">Avant les champs DCANT</button>' +
         '<button class="btn solid sm" style="width:100%;margin-bottom:8px" onclick="Export.setDefaultPosition(\'after\')">Apr\u00e8s les champs DCANT</button>' +
-        '<button class="btn sm danger" style="width:100%" onclick="Export.setDefaultPosition(\'replace\')">Remplacer les champs DCANT</button>' +
+        '<button class="btn sm danger" style="width:100%;margin-bottom:12px" onclick="Export.setDefaultPosition(\'replace\')">Remplacer les champs DCANT</button>' +
+        '<div style="text-align:right"><button class="btn ghost sm" onclick="Export.closeDefaultPopup()">Annuler</button></div>' +
       '</div>';
     overlay.style.display = 'flex';
   }
