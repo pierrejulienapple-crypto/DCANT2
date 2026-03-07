@@ -2038,64 +2038,57 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   overflow-y: auto;
 }
 
-/* ── EXPORT TYPE GRID (Card 1) ── */
-.export-type-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  max-width: 400px;
-  margin: 0 auto;
-}
-.export-type-card {
+/* ── EXPORT MODE LIST (Card 1) ── */
+.export-mode-list {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  max-width: 420px;
+  margin: 0 auto;
+  width: 100%;
+}
+.export-mode-btn {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 24px 16px;
+  gap: 14px;
+  padding: 18px 20px;
   border: 1.5px solid var(--border);
   border-radius: 12px;
   background: var(--white);
   cursor: pointer;
   transition: border-color .15s, box-shadow .15s, transform .1s;
   font-family: var(--font-body);
-  text-align: center;
+  text-align: left;
   color: var(--text);
+  width: 100%;
 }
-.export-type-card:hover {
+.export-mode-btn:hover {
   border-color: var(--accent);
   box-shadow: 0 2px 12px rgba(26,39,68,.1);
   transform: translateY(-1px);
 }
-.export-type-card:active { transform: translateY(0); }
-.export-type-card svg { opacity: .65; }
-.export-type-card-accent {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: white;
-}
-.export-type-card-accent svg { opacity: .85; }
-.export-type-card-accent:hover {
-  background: #0f1e3a;
-  border-color: #0f1e3a;
-}
-.export-type-label {
+.export-mode-btn:active { transform: translateY(0); }
+.export-mode-btn svg { flex-shrink: 0; opacity: .5; }
+.export-mode-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.export-mode-label {
   font-size: 15px;
   font-family: var(--font-display);
   font-style: italic;
   font-weight: 400;
 }
-.export-type-sub {
-  font-size: 11px;
-  opacity: .6;
-}
-.export-csv-link {
+.export-mode-sub {
   font-size: 12px;
   color: var(--dimmer);
-  text-decoration: none;
-  border-bottom: 1px dashed var(--dimmer);
-  padding-bottom: 1px;
+  line-height: 1.4;
 }
-.export-csv-link:hover { color: var(--text); border-color: var(--text); }
+.export-mode-arrow { flex-shrink: 0; opacity: .3; }
+
+/* ── EXPORT COL PILLS (Card 2a) ── */
+.export-col-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 
 /* ── EXPORT OPTIONS (Card 2 template) ── */
 .export-opts {
@@ -2137,102 +2130,77 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   color: white;
 }
 
-/* ── EXPORT CHAT FLOW (Card 2 custom) ── */
-.export-chat-flow {
+/* ── EXPORT TEMPLATE FILE INFO ── */
+.export-template-file {
+  font-size: 13px;
+  color: var(--accent);
+  background: rgba(26,39,68,.06);
+  padding: 8px 14px;
+  border: 1px solid rgba(26,39,68,.12);
+  border-radius: 6px;
+}
+
+/* ── EXPORT MAPPING (Card 3) ── */
+.export-mapping-list {
   flex: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 8px 0;
-  max-height: 340px;
+  gap: 6px;
+  max-height: 380px;
 }
-.export-chat-bubble {
-  max-width: 85%;
-  padding: 10px 14px;
-  border-radius: 16px;
+.export-map-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  flex-wrap: wrap;
+}
+.export-map-ok { border-left: 3px solid #22c55e; }
+.export-map-warn { border-left: 3px solid #f59e0b; }
+.export-map-icon {
   font-size: 14px;
-  line-height: 1.5;
-  animation: chatBubbleIn .3s ease;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
 }
-@keyframes chatBubbleIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+.export-map-ok .export-map-icon { color: #22c55e; }
+.export-map-warn .export-map-icon { color: #f59e0b; }
+.export-map-col {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 80px;
 }
-.export-chat-bubble-q {
-  align-self: flex-start;
+.export-map-arrow {
+  font-size: 12px;
+  color: var(--dimmer);
+  flex-shrink: 0;
+}
+.export-map-select {
+  font-family: var(--font-body);
+  font-size: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--text);
+  cursor: pointer;
+  min-width: 120px;
+}
+.export-map-input {
+  font-family: var(--font-body);
+  font-size: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   background: var(--bg);
   color: var(--text);
-  border-bottom-left-radius: 4px;
-}
-.export-chat-bubble-a {
-  align-self: flex-end;
-  background: var(--accent);
-  color: white;
-  border-bottom-right-radius: 4px;
-}
-.export-chat-answer-bar {
-  padding: 8px 0;
-}
-.export-chat-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.export-chat-pill {
-  padding: 8px 16px;
-  border: 1.5px solid var(--border);
-  border-radius: 20px;
-  background: var(--white);
-  font-size: 13px;
-  font-family: var(--font-body);
-  color: var(--text);
-  cursor: pointer;
-  transition: border-color .15s, background .15s;
-}
-.export-chat-pill:hover { border-color: var(--accent); }
-.export-chat-pill-other {
-  border-style: dashed;
-  color: var(--dimmer);
-}
-.export-chat-pill-other:hover { color: var(--text); }
-.export-chat-pill-toggle.active {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: white;
-}
-.export-chat-pill-validate {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: white;
-  font-weight: 600;
-}
-.export-chat-pill-validate:hover { background: #0f1e3a; border-color: #0f1e3a; }
-.export-chat-other {
-  display: flex;
-  gap: 6px;
-  align-items: flex-end;
-}
-
-/* ── EXPORT AI WIZARD ── */
-.export-attach-btn {
-  flex-shrink: 0;
-  width: 40px; height: 40px;
-  border: none; background: none;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--dim);
-  border-radius: 50%;
-  transition: all .15s;
-}
-.export-attach-btn:hover { color: var(--text); background: var(--bg); }
-
-.export-attach-status {
-  font-size: 12px; color: var(--accent);
-  background: rgba(26,39,68,.06);
-  padding: 8px 14px; margin-bottom: 12px;
-  border: 1px solid rgba(26,39,68,.12);
+  flex: 1;
+  min-width: 100px;
 }
 
 .export-fmt-bar {
@@ -2250,45 +2218,6 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   border-color: var(--accent); background: var(--accent); color: white;
 }
 
-.export-custom-panel {
-  background: var(--bg); border: 1px solid var(--border);
-  padding: 16px; margin-bottom: 16px;
-}
-.export-custom-row {
-  display: flex; align-items: center; justify-content: space-between; padding: 6px 0;
-}
-.export-custom-row label {
-  font-size: 12px; font-weight: 600;
-  letter-spacing: .06em; text-transform: uppercase; color: var(--dim);
-}
-.export-custom-row input[type="color"] {
-  width: 32px; height: 32px; border: 1px solid var(--border);
-  padding: 2px; cursor: pointer; background: none;
-}
-
-.export-font-bar {
-  display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap;
-}
-.export-font-pill {
-  font-family: var(--font); font-size: 11px;
-  padding: 8px 14px;
-  border: 1px solid var(--border); background: var(--white); color: var(--dim);
-  cursor: pointer; transition: all .15s;
-}
-.export-font-pill:hover { border-color: var(--text); }
-.export-font-pill.active {
-  border-color: var(--accent); color: var(--accent); font-weight: 600;
-}
-
-.export-preview-wrap {
-  border: 1px solid var(--border); overflow: auto; max-height: 400px; background: white;
-}
-.export-preview {
-  padding: 24px; min-height: 200px;
-  font-family: var(--export-font-body, 'DM Sans', sans-serif);
-  color: var(--export-text, #1a1a1a);
-  background: var(--export-bg, #ffffff);
-}
 
 /* Format pills section (Card 3) */
 .export-fmt-section {
@@ -2300,16 +2229,6 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   font-size: 10px; font-weight: 600; letter-spacing: .12em;
   text-transform: uppercase; color: var(--dimmer); margin-bottom: 8px;
 }
-
-/* Refine bar (Card 5) */
-.export-refine-bar {
-  display: flex; align-items: flex-end; gap: 8px;
-  padding: 10px 16px;
-  border-top: 1.5px solid var(--text);
-  background: var(--white);
-  flex-shrink: 0;
-}
-.export-refine-bar .wiz-chat-input-wrap { flex: 1; }
 
 /* History button */
 .export-hist-btn {

@@ -1,111 +1,45 @@
 // ═══════════════════════════════════════════
-// DCANT — Module Export IA v3
-// Wizard guidé : type → config/questionnaire → récap → aperçu
+// DCANT — Module Export v4
+// Rapide (CSV/Excel) + Template IA (mapping colonnes)
 // ═══════════════════════════════════════════
 
 const Export = (() => {
 
   // ── État privé ──
   let _wizCur = 1;
-  let _exportType = 'all';
+  let _mode = 'rapide';          // 'rapide' | 'template'
   let _exportRows = [];
-  let _selectedFormat = 'pdf';
-  let _generatedHTML = '';
-  let _templateCustom = {
-    bgColor: '#ffffff',
-    textColor: '#1a1a1a',
-    accentColor: '#1a2744',
-    fontPair: 'classic'
-  };
-  let _scrollY = 0;
-  let _exportName = '';
+  let _exportType = 'all';
+  let _selectedFormat = 'csv';
+  let _selectedCols = ['domaine', 'cuvee', 'appellation', 'millesime', 'pvttc'];
+  let _templateFile = null;
+  let _templateHeaders = [];
+  let _mappings = [];            // [{templateCol, dcantField, defaultValue}]
   let _exportHistory = [];
+  let _scrollY = 0;
 
-  // ── Config structurée (remplace _instruction + _interpretation) ──
-  let _config = {
-    type: '',        // carte | tarif | inventaire | custom
-    audience: '',
-    mise_en_page: '',
-    colonnes: [],
-    tri: '',
-    groupement: '',
-    notes: ''        // instructions custom additionnelles
-  };
-  let _chatStep = 0;
-
-  // ── Defaults par type ──
-  const _TYPE_DEFAULTS = {
-    carte: {
-      audience: 'Clients restaurant',
-      mise_en_page: 'carte des vins',
-      colonnes: ['domaine', 'cuvee', 'appellation', 'millesime', 'pvttc'],
-      tri: 'appellation',
-      groupement: 'appellation'
-    },
-    tarif: {
-      audience: 'Professionnels',
-      mise_en_page: 'tarif prix',
-      colonnes: ['domaine', 'cuvee', 'appellation', 'millesime', 'pvht'],
-      tri: 'domaine',
-      groupement: 'aucun'
-    },
-    inventaire: {
-      audience: 'Usage interne',
-      mise_en_page: 'inventaire complet',
-      colonnes: ['domaine', 'cuvee', 'appellation', 'millesime', 'prix_achat', 'pvht', 'pvttc', 'marge_euros', 'marge_pct', 'coeff', 'commentaire'],
-      tri: 'domaine',
-      groupement: 'aucun'
-    }
+  // ── Champs DCANT ──
+  const DCANT_FIELDS = {
+    domaine:      { label: 'Domaine',        getter: e => e.domaine || '' },
+    cuvee:        { label: 'Cuvée',          getter: e => e.cuvee || '' },
+    appellation:  { label: 'Appellation',    getter: e => e.appellation || '' },
+    millesime:    { label: 'Millésime',      getter: e => e.millesime || '' },
+    prix_achat:   { label: 'Prix achat (€)', getter: e => e.prix_achat ?? '' },
+    pvht:         { label: 'PV HT (€)',      getter: e => e.pvht ?? '' },
+    pvttc:        { label: 'PV TTC (€)',     getter: e => e.pvttc ?? '' },
+    marge_euros:  { label: 'Marge (€)',      getter: e => e.marge_euros ?? '' },
+    marge_pct:    { label: 'Marge (%)',      getter: e => e.marge_pct ?? '' },
+    coeff:        { label: 'Coefficient',    getter: e => e.coeff ?? '' },
+    commentaire:  { label: 'Commentaire',    getter: e => e.commentaire || '' },
+    date:         { label: 'Date',           getter: e => e.created_at ? new Date(e.created_at).toLocaleDateString('fr-FR') : '' },
+    transport:    { label: 'Transport (€)',  getter: e => e.charges?.transport || 0 },
+    douane:       { label: 'Douane (€)',     getter: e => e.charges?.douane || 0 },
+    cout_revient: { label: 'Coût revient (€)', getter: e => e.cout_revient ?? '' },
+    mode:         { label: 'Mode',           getter: e => e.mode || '' },
+    valeur_mode:  { label: 'Valeur mode',    getter: e => e.mode_value ?? '' }
   };
 
-  // ── Questions du questionnaire personnalisé ──
-  const _QUESTIONS = [
-    {
-      text: 'Pour qui est ce document ?',
-      key: 'audience',
-      options: ['Clients restaurant', 'Professionnels', 'Usage interne']
-    },
-    {
-      text: 'Quel style de mise en page ?',
-      key: 'mise_en_page',
-      options: ['Carte des vins élégante', 'Tableau structuré', 'Visuel graphique']
-    },
-    {
-      text: 'Quelles informations afficher ?',
-      key: 'colonnes',
-      multi: true,
-      options: ['domaine', 'cuvee', 'appellation', 'millesime', 'pvht', 'pvttc', 'marge_euros', 'coeff', 'commentaire'],
-      labels: { domaine: 'Domaine', cuvee: 'Cuvée', appellation: 'Appellation', millesime: 'Millésime', pvht: 'Prix HT', pvttc: 'Prix TTC', marge_euros: 'Marge', coeff: 'Coeff', commentaire: 'Commentaire' },
-      defaults: ['domaine', 'cuvee', 'appellation', 'millesime', 'pvttc']
-    },
-    {
-      text: 'Comment organiser les vins ?',
-      key: 'tri',
-      options: ['Par appellation', 'Par domaine', 'Par prix']
-    }
-  ];
-
-  // ── Template opts par type ──
-  const _TEMPLATE_OPTS = {
-    carte: [
-      { label: 'Trier par', key: 'tri', options: ['appellation', 'domaine', 'prix'] },
-      { label: 'Grouper', key: 'groupement', options: ['appellation', 'domaine', 'aucun'], labels: { appellation: 'Par appellation', domaine: 'Par domaine', aucun: 'Non' } }
-    ],
-    tarif: [
-      { label: 'Prix affiché', key: '_prix_mode', options: ['ht', 'ttc', 'ht_ttc'], labels: { ht: 'HT seul', ttc: 'TTC seul', ht_ttc: 'HT + TTC' } },
-      { label: 'Afficher marge', key: '_show_marge', options: ['non', 'oui'], labels: { non: 'Non', oui: 'Oui (€ + %)' } }
-    ],
-    inventaire: [
-      { label: 'Trier par', key: 'tri', options: ['domaine', 'prix_achat', 'marge_pct'], labels: { domaine: 'Domaine', prix_achat: 'Prix d\'achat', marge_pct: 'Marge' } }
-    ]
-  };
-
-  const _FONT_PAIRS = {
-    classic:  { display: "'Fraunces', serif",           body: "'DM Sans', sans-serif",  label: 'Classique' },
-    moderne:  { display: "'Inter', sans-serif",         body: "'Inter', sans-serif",    label: 'Moderne' },
-    elegant:  { display: "'Playfair Display', serif",   body: "'Lato', sans-serif",     label: 'Élégant' },
-    ardoise:  { display: "'Caveat', cursive",           body: "'DM Sans', sans-serif",  label: 'Ardoise' }
-  };
+  const ALL_COLS = Object.keys(DCANT_FIELDS);
 
   // ── Scroll lock ──
   function _lockScroll() {
@@ -136,6 +70,11 @@ const Export = (() => {
     _exportType = type;
     _exportRows = rows;
     _reset();
+
+    // Afficher le nombre de cuvées
+    const sub = g('exportCountSub');
+    if (sub) sub.textContent = _exportRows.length + ' cuvée' + (_exportRows.length > 1 ? 's' : '') + ' sélectionnée' + (_exportRows.length > 1 ? 's' : '');
+
     g('exportOverlay').classList.add('open');
     _lockScroll();
   }
@@ -143,17 +82,16 @@ const Export = (() => {
   function close() {
     g('exportOverlay').classList.remove('open');
     _unlockScroll();
-    ExportVoice.stop();
   }
 
   function _reset() {
     _wizCur = 1;
-    _config = { type: '', audience: '', mise_en_page: '', colonnes: [], tri: '', groupement: '', notes: '' };
-    _chatStep = 0;
-    _selectedFormat = 'pdf';
-    _generatedHTML = '';
-    _templateCustom = { bgColor: '#ffffff', textColor: '#1a1a1a', accentColor: '#1a2744', fontPair: 'classic' };
-    _exportName = '';
+    _mode = 'rapide';
+    _selectedFormat = 'csv';
+    _selectedCols = ['domaine', 'cuvee', 'appellation', 'millesime', 'pvttc'];
+    _templateFile = null;
+    _templateHeaders = [];
+    _mappings = [];
 
     document.querySelectorAll('#exportCardsWrap .wiz-card').forEach(c =>
       c.classList.remove('active', 'exit-left'));
@@ -161,28 +99,34 @@ const Export = (() => {
     if (c1) c1.classList.add('active');
     _wizUpdateProgress(1);
 
-    const pc = g('exportPreviewContainer');
-    if (pc) pc.innerHTML = '';
-    const ri = g('exportRefineInput');
-    if (ri) ri.value = '';
-
-    // Reset color pickers
-    const cpBg = g('exportColorBg');
-    const cpTxt = g('exportColorText');
-    const cpAcc = g('exportColorAccent');
-    if (cpBg) cpBg.value = '#ffffff';
-    if (cpTxt) cpTxt.value = '#1a1a1a';
-    if (cpAcc) cpAcc.value = '#1a2744';
-    // Reset font pills
-    document.querySelectorAll('.export-font-pill').forEach(p =>
-      p.classList.toggle('active', p.dataset.font === 'classic'));
     // Reset format pills
     document.querySelectorAll('.export-fmt-pill').forEach(p =>
-      p.classList.toggle('active', p.dataset.fmt === 'pdf'));
+      p.classList.toggle('active', p.dataset.fmt === 'csv'));
+
+    // Reset panels
+    const pr = g('exportPanelRapide');
+    const pt = g('exportPanelTemplate');
+    if (pr) pr.style.display = 'none';
+    if (pt) pt.style.display = 'none';
+
+    // Reset dropzone
+    const dz = g('exportDropzone');
+    if (dz) dz.classList.remove('drag-over');
+    const ti = g('exportTemplateInfo');
+    if (ti) ti.style.display = 'none';
+    const ab = g('exportAnalyzeBtn');
+    if (ab) ab.style.display = 'none';
+    const as = g('exportAnalyzeSpinner');
+    if (as) as.style.display = 'none';
+
+    // Reset mapping
+    const ml = g('exportMappingList');
+    if (ml) ml.innerHTML = '';
   }
 
   // ── WIZARD NAVIGATION ──
-  const _CARD_IDS = { 1: 'exportCard1', 2: 'exportCard2', 3: 'exportCard3', 4: 'exportCard4' };
+  const _CARD_IDS = { 1: 'exportCard1', 2: 'exportCard2', 3: 'exportCard3' };
+  const _LABELS = { 1: 'Mode', 2: 'Configuration', 3: 'Mapping' };
 
   function wizGo(n) {
     const prevCard = document.querySelector('#exportCardsWrap .wiz-card.active');
@@ -190,10 +134,8 @@ const Export = (() => {
     if (!nextCard || prevCard === nextCard) return;
 
     const fwd = n > _wizCur;
-
     document.querySelectorAll('#exportCardsWrap .wiz-card.exit-left')
       .forEach(c => c.classList.remove('exit-left'));
-
     if (fwd && prevCard) prevCard.classList.add('exit-left');
     if (prevCard) prevCard.classList.remove('active');
     nextCard.classList.add('active');
@@ -205,610 +147,381 @@ const Export = (() => {
 
     _wizCur = n;
     _wizUpdateProgress(n);
-
-    // Quand on arrive sur Card 3, render le récap
-    if (n === 3) _renderRecap();
-
     setTimeout(() => nextCard.scrollTop = 0, 10);
   }
 
   function _wizUpdateProgress(n) {
-    const pcts = { 1: 25, 2: 50, 3: 75, 4: 100 };
+    const pcts = { 1: 33, 2: 66, 3: 100 };
     const el = g('exportProgFill');
-    if (el) el.style.width = (pcts[n] || 25) + '%';
+    if (el) el.style.width = (pcts[n] || 33) + '%';
 
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 3; i++) {
       const d = g('ewd' + i);
       if (!d) continue;
       d.className = 'wiz-dot' + (i < n ? ' done' : i === n ? ' on' : '');
     }
-    const lbls = { 1: 'Type', 2: 'Configuration', 3: 'Récap', 4: 'Aperçu' };
     const txt = g('exportStepTxt');
-    if (txt) txt.textContent = lbls[n] || '';
+    if (txt) txt.textContent = _LABELS[n] || '';
   }
 
-  // ── CARD 1 : Choix du type ──
-  function exportDirect() {
-    close();
-    UI.exportCSV(_exportType);
-  }
-
-  function selectType(type) {
-    _config.type = type;
-
-    if (type !== 'custom') {
-      // Appliquer les defaults
-      const defs = _TYPE_DEFAULTS[type];
-      Object.assign(_config, { ...defs });
-      _showTemplateOpts(type);
+  // ── CARD 1 : Mode selection ──
+  function selectMode(mode) {
+    _mode = mode;
+    if (mode === 'rapide') {
+      _showRapidePanel();
     } else {
-      // Mode personnalisé : questionnaire
-      _config.audience = '';
-      _config.mise_en_page = '';
-      _config.colonnes = [];
-      _config.tri = '';
-      _config.groupement = 'aucun';
-      _config.notes = '';
-      _startQuestionnaire();
+      _showTemplatePanel();
     }
-
     wizGo(2);
   }
 
-  // ── CARD 2 : Template options ──
-  function _showTemplateOpts(type) {
-    const tpl = g('exportOptsTemplate');
-    const cst = g('exportOptsCustom');
-    if (tpl) tpl.style.display = '';
-    if (cst) cst.style.display = 'none';
+  // ── CARD 2a : Export rapide ──
+  function _showRapidePanel() {
+    const pr = g('exportPanelRapide');
+    const pt = g('exportPanelTemplate');
+    if (pr) pr.style.display = 'flex';
+    if (pt) pt.style.display = 'none';
+    _renderColPills();
+  }
 
-    const title = g('exportCard2Title');
-    const sub = g('exportCard2Sub');
-    const typeLabels = { carte: 'Carte des vins', tarif: 'Tarif professionnel', inventaire: 'Inventaire' };
-    if (title) title.textContent = typeLabels[type] || 'Options';
-    if (sub) sub.textContent = 'Ajustez les réglages de votre export.';
+  function _renderColPills() {
+    const container = g('exportColPills');
+    if (!container) return;
 
-    const group = g('exportOptGroup');
-    if (!group) return;
+    const QUICK_COLS = ['domaine', 'cuvee', 'appellation', 'millesime', 'prix_achat', 'pvht', 'pvttc', 'marge_euros', 'marge_pct', 'coeff', 'commentaire'];
 
-    const opts = _TEMPLATE_OPTS[type] || [];
-    group.innerHTML = opts.map(opt => {
-      const lbls = opt.labels || {};
-      return '<div class="export-opt-row">' +
-        '<div class="export-opt-label">' + _esc(opt.label) + '</div>' +
-        '<div class="export-opt-pills" data-key="' + opt.key + '">' +
-          opt.options.map(v => {
-            const isDefault = (_config[opt.key] === v) ||
-              (opt.key === '_prix_mode' && v === 'ht') ||
-              (opt.key === '_show_marge' && v === 'non');
-            return '<button class="export-opt-pill' + (isDefault ? ' active' : '') + '" data-val="' + v + '" onclick="Export.selectOpt(\'' + opt.key + '\',\'' + v + '\')">' +
-              _esc(lbls[v] || v) + '</button>';
-          }).join('') +
-        '</div>' +
-      '</div>';
+    container.innerHTML = QUICK_COLS.map(key => {
+      const f = DCANT_FIELDS[key];
+      const active = _selectedCols.includes(key);
+      return '<button class="export-opt-pill' + (active ? ' active' : '') + '" data-col="' + key + '" onclick="Export.toggleCol(\'' + key + '\')">' +
+        _esc(f.label.replace(/ \(.*\)/, '')) + '</button>';
     }).join('');
   }
 
-  function selectOpt(key, val) {
-    // Mettre à jour l'UI
-    const pills = document.querySelectorAll('.export-opt-pills[data-key="' + key + '"] .export-opt-pill');
-    pills.forEach(p => p.classList.toggle('active', p.dataset.val === val));
-
-    // Mettre à jour _config
-    if (key === '_prix_mode') {
-      // Ajuster les colonnes selon le mode prix
-      const base = _config.colonnes.filter(c => c !== 'pvht' && c !== 'pvttc');
-      if (val === 'ht') base.push('pvht');
-      else if (val === 'ttc') base.push('pvttc');
-      else { base.push('pvht'); base.push('pvttc'); }
-      _config.colonnes = base;
-    } else if (key === '_show_marge') {
-      const base = _config.colonnes.filter(c => c !== 'marge_euros' && c !== 'marge_pct');
-      if (val === 'oui') { base.push('marge_euros'); base.push('marge_pct'); }
-      _config.colonnes = base;
+  function toggleCol(key) {
+    const idx = _selectedCols.indexOf(key);
+    if (idx >= 0) {
+      if (_selectedCols.length <= 1) { toast('Au moins une colonne.'); return; }
+      _selectedCols.splice(idx, 1);
     } else {
-      _config[key] = val;
+      _selectedCols.push(key);
     }
+    // Update pill
+    const pill = document.querySelector('.export-opt-pill[data-col="' + key + '"]');
+    if (pill) pill.classList.toggle('active', _selectedCols.includes(key));
   }
 
-  // ── CARD 2 : Questionnaire personnalisé ──
-  function _startQuestionnaire() {
-    const tpl = g('exportOptsTemplate');
-    const cst = g('exportOptsCustom');
-    if (tpl) tpl.style.display = 'none';
-    if (cst) cst.style.display = '';
-
-    const title = g('exportCard2Title');
-    const sub = g('exportCard2Sub');
-    if (title) title.textContent = 'Personnalisé';
-    if (sub) sub.textContent = 'Répondez à quelques questions pour configurer votre export.';
-
-    const flow = g('exportChatFlow');
-    if (flow) flow.innerHTML = '';
-    _chatStep = 0;
-    _showQuestion(0);
-  }
-
-  function _showQuestion(idx) {
-    if (idx >= _QUESTIONS.length) {
-      _questionnaireDone();
-      return;
-    }
-
-    const q = _QUESTIONS[idx];
-    const flow = g('exportChatFlow');
-    if (!flow) return;
-
-    // Ajouter bulle question
-    const bubble = document.createElement('div');
-    bubble.className = 'export-chat-bubble export-chat-bubble-q';
-    bubble.textContent = q.text;
-    flow.appendChild(bubble);
-
-    // Afficher les pills de réponse
-    const bar = g('exportAnswerBar');
-    const pills = g('exportAnswerPills');
-    const other = g('exportAnswerOther');
-    if (bar) bar.style.display = '';
-    if (other) other.style.display = 'none';
-
-    if (q.multi) {
-      _showMultiSelect(idx, q);
-    } else {
-      _showSingleSelect(idx, q);
-    }
-
-    // Scroll en bas
-    setTimeout(() => flow.scrollTop = flow.scrollHeight, 50);
-  }
-
-  function _showSingleSelect(idx, q) {
-    const pills = g('exportAnswerPills');
-    if (!pills) return;
-
-    pills.innerHTML = q.options.map(opt =>
-      '<button class="export-chat-pill" onclick="Export.answerQuestion(' + idx + ',\'' + _esc(opt).replace(/'/g, "\\'") + '\')">' + _esc(opt) + '</button>'
-    ).join('') +
-    '<button class="export-chat-pill export-chat-pill-other" onclick="Export.showOtherInput()">Autre</button>';
-  }
-
-  function _showMultiSelect(idx, q) {
-    const pills = g('exportAnswerPills');
-    if (!pills) return;
-
-    const defs = q.defaults || [];
-    const lbls = q.labels || {};
-    pills.innerHTML = q.options.map(opt => {
-      const selected = defs.includes(opt);
-      return '<button class="export-chat-pill export-chat-pill-toggle' + (selected ? ' active' : '') + '" data-val="' + opt + '" onclick="this.classList.toggle(\'active\')">' +
-        _esc(lbls[opt] || opt) + '</button>';
-    }).join('') +
-    '<button class="export-chat-pill export-chat-pill-validate" onclick="Export.validateMultiSelect(' + idx + ')">Valider</button>';
-  }
-
-  function showOtherInput() {
-    const other = g('exportAnswerOther');
-    if (other) other.style.display = 'flex';
-    const input = g('exportCustomInput');
-    if (input) { input.value = ''; input.focus(); }
-  }
-
-  function submitCustomAnswer() {
-    if (ExportVoice.isRecording()) {
-      ExportVoice.stop();
-      setTimeout(() => submitCustomAnswer(), 600);
-      return;
-    }
-    const input = g('exportCustomInput');
-    if (!input) return;
-    const text = input.value.trim();
-    if (!text) return;
-    answerQuestion(_chatStep, text);
-  }
-
-  function answerQuestion(idx, value) {
-    const q = _QUESTIONS[idx];
-    if (!q) return;
-
-    // Stocker la réponse
-    _config[q.key] = value;
-
-    // Afficher bulle réponse user
-    const flow = g('exportChatFlow');
-    if (flow) {
-      const bubble = document.createElement('div');
-      bubble.className = 'export-chat-bubble export-chat-bubble-a';
-      bubble.textContent = value;
-      flow.appendChild(bubble);
-    }
-
-    // Cacher la barre de réponse
-    const bar = g('exportAnswerBar');
-    if (bar) bar.style.display = 'none';
-
-    // Passer à la question suivante
-    _chatStep = idx + 1;
-    setTimeout(() => _showQuestion(_chatStep), 400);
-  }
-
-  function validateMultiSelect(idx) {
-    const q = _QUESTIONS[idx];
-    if (!q) return;
-
-    const selected = [];
-    document.querySelectorAll('#exportAnswerPills .export-chat-pill-toggle.active').forEach(p => {
-      selected.push(p.dataset.val);
-    });
-
-    if (!selected.length) {
-      toast('Sélectionnez au moins une information.');
-      return;
-    }
-
-    _config[q.key] = selected;
-
-    // Afficher bulle résumé
-    const lbls = q.labels || {};
-    const summary = selected.map(s => lbls[s] || s).join(', ');
-    const flow = g('exportChatFlow');
-    if (flow) {
-      const bubble = document.createElement('div');
-      bubble.className = 'export-chat-bubble export-chat-bubble-a';
-      bubble.textContent = summary;
-      flow.appendChild(bubble);
-    }
-
-    const bar = g('exportAnswerBar');
-    if (bar) bar.style.display = 'none';
-
-    _chatStep = idx + 1;
-    setTimeout(() => _showQuestion(_chatStep), 400);
-  }
-
-  function _questionnaireDone() {
-    // Déterminer le groupement depuis le tri
-    const triMap = { 'Par appellation': 'appellation', 'Par domaine': 'domaine', 'Par prix': 'aucun' };
-    if (typeof _config.tri === 'string' && triMap[_config.tri]) {
-      _config.groupement = triMap[_config.tri];
-      _config.tri = triMap[_config.tri] || _config.tri;
-    }
-    // Afficher message de fin dans le chat
-    const flow = g('exportChatFlow');
-    if (flow) {
-      const bubble = document.createElement('div');
-      bubble.className = 'export-chat-bubble export-chat-bubble-q';
-      bubble.textContent = 'Parfait ! Voici le récap de votre export.';
-      flow.appendChild(bubble);
-    }
-    setTimeout(() => wizGo(3), 800);
-  }
-
-  // ── CARD 3 : Récap ──
-  function _renderRecap() {
-    const rules = g('exportRecapRules');
-    if (!rules) return;
-
-    const typeLabels = { carte: 'Carte des vins', tarif: 'Tarif professionnel', inventaire: 'Inventaire', custom: 'Personnalisé' };
-    const colLabels = { domaine: 'Domaine', cuvee: 'Cuvée', appellation: 'Appellation', millesime: 'Millésime', prix_achat: 'Prix achat', pvht: 'Prix HT', pvttc: 'Prix TTC', marge_euros: 'Marge €', marge_pct: 'Marge %', coeff: 'Coeff', commentaire: 'Commentaire' };
-
-    const items = [
-      { k: 'Type', v: typeLabels[_config.type] || _config.type },
-      { k: 'Audience', v: _config.audience || '-' },
-      { k: 'Colonnes', v: (_config.colonnes || []).map(c => colLabels[c] || c).join(', ') || '-' },
-      { k: 'Tri', v: _config.tri || 'aucun' },
-      { k: 'Groupement', v: _config.groupement || 'aucun' }
-    ];
-    if (_config.notes) {
-      items.push({ k: 'Notes', v: _config.notes });
-    }
-
-    rules.innerHTML = items.map(item =>
-      '<div class="wiz-confirm-rule">' +
-        '<span class="wiz-confirm-num">' + _esc(item.k) + '</span>' +
-        '<span>' + _esc(item.v) + '</span>' +
-      '</div>'
-    ).join('');
-
-    // Nom d'export
-    _exportName = _generateExportName();
-  }
-
-  function _generateExportName() {
-    const typeLabels = { carte: 'Carte des vins', tarif: 'Tarif pro', inventaire: 'Inventaire', custom: 'Export personnalisé' };
-    const fmt = _selectedFormat.toUpperCase();
-    return (typeLabels[_config.type] || 'Export') + ' (' + fmt + ')';
-  }
-
-  // ── FORMAT ──
   function selectFormat(fmt) {
     _selectedFormat = fmt;
     document.querySelectorAll('.export-fmt-pill').forEach(p =>
       p.classList.toggle('active', p.dataset.fmt === fmt));
-    _exportName = _generateExportName();
   }
 
-  // ── GENERATE ──
-  async function generate() {
-    const spinner = g('exportGenSpinner');
-    const btn = g('exportGenBtn');
-    if (btn) btn.disabled = true;
-    if (spinner) spinner.style.display = 'flex';
+  // ── Download rapide (0 IA) ──
+  function downloadRapide() {
+    if (!_exportRows.length) { toast('Aucune donnée.'); return; }
+    if (!_selectedCols.length) { toast('Sélectionnez au moins une colonne.'); return; }
 
-    try {
-      if (_selectedFormat === 'csv' || _selectedFormat === 'excel') {
-        await _generateCSV();
-      } else {
-        await _generateHTML();
-        wizGo(4);
-      }
-    } catch (e) {
-      console.error('Generate error:', e);
-      toast('Erreur de génération. Export CSV en fallback.');
-      _generateCSVFallback();
-    }
-
-    if (spinner) spinner.style.display = 'none';
-    if (btn) btn.disabled = false;
-  }
-
-  // ── PROMPT STRUCTURÉ ──
-  function _buildPrompt() {
-    const colLabels = { domaine: 'Domaine', cuvee: 'Cuvée', appellation: 'Appellation', millesime: 'Millésime', prix_achat: 'Prix d\'achat', pvht: 'Prix HT', pvttc: 'Prix TTC', marge_euros: 'Marge €', marge_pct: 'Marge %', coeff: 'Coefficient', commentaire: 'Commentaire' };
-
-    const system = 'RÔLE : Tu es un expert en mise en page de documents viticoles professionnels.\n\n' +
-      'TÂCHE : Génère un document HTML de type "' + (_config.mise_en_page || 'tableau') + '" destiné à ' + (_config.audience || 'usage professionnel') + '.\n\n' +
-      'CONTEXTE : L\'utilisateur est un professionnel du vin. Il a ' + _exportRows.length + ' vins dans son historique.\n\n' +
-      'FORMAT DE SORTIE : HTML avec CSS inline, largeur 800px max.\n' +
-      'Utilise les CSS variables :\n' +
-      '- var(--export-bg) pour le fond\n' +
-      '- var(--export-text) pour le texte\n' +
-      '- var(--export-accent) pour les accents (titres, bordures)\n' +
-      '- var(--export-font-display) pour les titres\n' +
-      '- var(--export-font-body) pour le corps de texte\n\n' +
-      'STRUCTURE :\n' +
-      '- Colonnes à afficher : ' + (_config.colonnes || []).map(c => colLabels[c] || c).join(', ') + '\n' +
-      '- Tri : ' + (_config.tri || 'aucun') + '\n' +
-      '- Groupement : ' + (_config.groupement || 'aucun') + '\n' +
-      (_config.notes ? '- Notes : ' + _config.notes + '\n' : '') + '\n' +
-      'EXEMPLE : Pense à un document professionnel soigné avec titres clairs, espacement aéré, typographie élégante.\n\n' +
-      'RÉFLEXION : Avant de générer, réfléchis à la meilleure mise en page pour ce type de document et cette audience.\n\n' +
-      'CONTRAINTES :\n' +
-      '- N\'invente JAMAIS de données vin\n' +
-      '- Utilise UNIQUEMENT les données JSON fournies ci-dessous\n' +
-      '- Retourne UNIQUEMENT le HTML, sans ```, sans doctype';
-
-    return system;
-  }
-
-  async function _generateCSV() {
-    const dataLines = _exportRows.map(r =>
-      r.domaine + '|' + (r.cuvee || '') + '|' + (r.appellation || '') + '|' + (r.millesime || '') +
-      '|PA:' + r.prix_achat + '|PVHT:' + r.pvht + '|TTC:' + r.pvttc +
-      '|Marge:' + r.marge_euros + '|Coeff:' + r.coeff + '|' + (r.commentaire || '')
-    ).join('\n');
-
-    const colLabels = { domaine: 'Domaine', cuvee: 'Cuvée', appellation: 'Appellation', millesime: 'Millésime', prix_achat: 'Prix achat', pvht: 'Prix HT', pvttc: 'Prix TTC', marge_euros: 'Marge €', marge_pct: 'Marge %', coeff: 'Coeff', commentaire: 'Commentaire' };
-    const cols = (_config.colonnes || []).map(c => colLabels[c] || c).join(', ');
-
-    const response = await fetch('/api/ai', {
-      method: 'POST',
-      headers: await authHeaders(),
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4000,
-        messages: [{ role: 'user', content:
-          'Génère un fichier CSV avec ces colonnes exactes : ' + cols + '\n' +
-          'Séparateur : ";"\n' +
-          'Tri : ' + (_config.tri || 'aucun') + '\n' +
-          'Données (' + _exportRows.length + ' lignes) :\n' + dataLines + '\n' +
-          'Retourne UNIQUEMENT le CSV, avec ligne d\'en-tête, rien d\'autre. N\'invente aucune donnée.'
-        }]
-      })
+    // Tri : domaine puis millésime desc
+    const sorted = [..._exportRows].sort((a, b) => {
+      const d = (a.domaine || '').localeCompare(b.domaine || '', 'fr');
+      if (d !== 0) return d;
+      return (b.millesime || 0) - (a.millesime || 0);
     });
-    if (!response.ok) {
-      if (response.status === 529) throw new Error('API surchargée, réessayez dans 30s');
-      throw new Error('API ' + response.status);
+
+    const headers = _selectedCols.map(k => DCANT_FIELDS[k].label);
+    const rows = sorted.map(e =>
+      _selectedCols.map(k => DCANT_FIELDS[k].getter(e))
+    );
+
+    if (_selectedFormat === 'excel') {
+      _downloadExcel(headers, rows, 'dcant_export.xlsx');
+    } else {
+      _downloadCSV(headers, rows, 'dcant_export.csv');
     }
-    const data = await response.json();
-    const csv = data.content[0].text.trim().replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
-    _downloadBlob('\uFEFF' + csv, 'text/csv;charset=utf-8;', 'dcant_export.csv');
-    toast(_exportRows.length + ' cuvée(s) exportée(s)');
-    _saveToHistory();
+
+    toast(sorted.length + ' cuvée(s) exportée(s)');
+    _saveToHistory('Export rapide');
     close();
     setTimeout(() => Feedback.showBanner(5, 'historyContent'), 700);
   }
 
-  function _generateCSVFallback() {
-    const csv = Calcul.genererCSV(_exportRows);
-    _downloadBlob(csv, 'text/csv;charset=utf-8;', 'dcant_export.csv');
-    toast('Export CSV téléchargé (fallback)');
-    close();
+  // ── CARD 2b : Upload template ──
+  function _showTemplatePanel() {
+    const pr = g('exportPanelRapide');
+    const pt = g('exportPanelTemplate');
+    if (pr) pr.style.display = 'none';
+    if (pt) pt.style.display = 'flex';
   }
 
-  async function _generateHTML() {
-    const dataJson = _exportRows.map(r => JSON.stringify({
-      domaine: r.domaine, cuvee: r.cuvee || '', appellation: r.appellation || '',
-      millesime: r.millesime || '', prix_achat: r.prix_achat, pvht: r.pvht,
-      pvttc: r.pvttc, marge_euros: r.marge_euros, marge_pct: r.marge_pct,
-      coeff: r.coeff, commentaire: r.commentaire || ''
-    })).join('\n');
+  function onDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    g('exportDropzone')?.classList.add('drag-over');
+  }
 
-    const systemPrompt = _buildPrompt();
-    const userPrompt = 'Données (' + _exportRows.length + ' vins) :\n' + dataJson;
+  function onDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    g('exportDropzone')?.classList.remove('drag-over');
+  }
 
-    const response = await fetch('/api/ai', {
-      method: 'POST',
-      headers: await authHeaders(),
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }]
-      })
-    });
-    if (!response.ok) {
-      if (response.status === 529) throw new Error('API surchargée, réessayez dans 30s');
-      throw new Error('API ' + response.status);
+  function onDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    g('exportDropzone')?.classList.remove('drag-over');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) _handleFile(file);
+  }
+
+  function onFileChange(e) {
+    const file = e.target?.files?.[0];
+    if (file) _handleFile(file);
+  }
+
+  function _handleFile(file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['csv', 'xlsx', 'xls'].includes(ext)) {
+      toast('Format non supporté. Utilisez CSV, XLSX ou XLS.');
+      return;
     }
-    const data = await response.json();
-    _generatedHTML = data.content[0].text.trim()
-      .replace(/^```html?\s*/i, '').replace(/```\s*$/i, '').trim();
-
-    _renderPreview();
+    _templateFile = file;
+    const nameEl = g('exportTemplateName');
+    if (nameEl) nameEl.textContent = file.name + ' (' + _formatSize(file.size) + ')';
+    const info = g('exportTemplateInfo');
+    if (info) info.style.display = '';
+    const btn = g('exportAnalyzeBtn');
+    if (btn) btn.style.display = '';
   }
 
-  // ── CARD 4 : Aperçu + personnalisation ──
-  function _renderPreview() {
-    const container = g('exportPreviewContainer');
-    if (!container) return;
-
-    const fp = _FONT_PAIRS[_templateCustom.fontPair] || _FONT_PAIRS.classic;
-    container.style.setProperty('--export-bg', _templateCustom.bgColor);
-    container.style.setProperty('--export-text', _templateCustom.textColor);
-    container.style.setProperty('--export-accent', _templateCustom.accentColor);
-    container.style.setProperty('--export-font-display', fp.display);
-    container.style.setProperty('--export-font-body', fp.body);
-    container.style.background = _templateCustom.bgColor;
-    container.style.color = _templateCustom.textColor;
-    container.innerHTML = _generatedHTML;
+  function _formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' o';
+    if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' Ko';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
   }
 
-  function updateCustom(prop, val) {
-    _templateCustom[prop] = val;
-    _renderPreview();
-  }
+  // ── Analyze template (1 appel IA) ──
+  async function analyzeTemplate() {
+    if (!_templateFile) { toast('Aucun fichier sélectionné.'); return; }
 
-  function selectFontPair(key) {
-    _templateCustom.fontPair = key;
-    document.querySelectorAll('.export-font-pill').forEach(p =>
-      p.classList.toggle('active', p.dataset.font === key));
-    _renderPreview();
-  }
-
-  function chatAutosize(ta) {
-    ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
-  }
-
-  function toggleRecording() {
-    if (ExportVoice.isRecording()) ExportVoice.stop();
-    else ExportVoice.start();
-  }
-
-  async function download() {
-    const container = g('exportPreviewContainer');
-    if (!container) return;
-
-    toast('Génération du fichier…');
-
-    try {
-      if (typeof html2canvas === 'undefined') {
-        throw new Error('html2canvas non chargé');
-      }
-
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: _templateCustom.bgColor,
-        width: container.scrollWidth,
-        height: container.scrollHeight
-      });
-
-      if (_selectedFormat === 'pdf') {
-        if (typeof window.jspdf === 'undefined') {
-          throw new Error('jsPDF non chargé');
-        }
-        const { jsPDF } = window.jspdf;
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        const pxW = canvas.width;
-        const pxH = canvas.height;
-        const pdfW = 210;
-        const pdfH = (pxH * pdfW) / pxW;
-        const pdf = new jsPDF({ unit: 'mm', format: [pdfW, Math.max(pdfH, 297)] });
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
-        pdf.save('dcant_export.pdf');
-        toast('PDF téléchargé');
-      } else {
-        canvas.toBlob(blob => {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'dcant_export.jpg';
-          a.target = '_blank';
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
-          toast('Image téléchargée');
-        }, 'image/jpeg', 0.95);
-      }
-
-      _saveToHistory();
-    } catch (e) {
-      console.error('Download error:', e);
-      toast('Erreur : ' + e.message);
+    if (typeof XLSX === 'undefined') {
+      toast('SheetJS non chargé. Rechargez la page.');
+      return;
     }
-  }
 
-  // ── REFINEMENT (Chat Card 4) ──
-  async function sendRefinement() {
-    const ta = g('exportRefineInput');
-    if (!ta) return;
-    const text = ta.value.trim();
-    if (!text || !_generatedHTML) return;
-
-    const spinner = g('exportRefineSpinner');
-    const btn = g('exportRefineBtn');
-    if (btn) btn.disabled = true;
+    const spinner = g('exportAnalyzeSpinner');
+    const btn = g('exportAnalyzeBtn');
     if (spinner) spinner.style.display = 'flex';
+    if (btn) btn.style.display = 'none';
 
     try {
+      // Lire les headers avec SheetJS
+      const data = await _templateFile.arrayBuffer();
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+      if (!rows.length || !rows[0].length) {
+        toast('Fichier vide ou sans en-têtes.');
+        if (spinner) spinner.style.display = 'none';
+        if (btn) btn.style.display = '';
+        return;
+      }
+
+      _templateHeaders = rows[0].map(h => String(h).trim()).filter(Boolean);
+
+      // Appel IA pour le mapping
+      const fieldKeys = ALL_COLS.join(', ');
+      const headersList = _templateHeaders.map((h, i) => (i + 1) + '. "' + h + '"').join('\n');
+
       const response = await fetch('/api/ai', {
         method: 'POST',
         headers: await authHeaders(),
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 4000,
-          system: 'Tu modifies du HTML existant selon une instruction. Conserve les CSS variables (--export-bg, --export-text, --export-accent, --export-font-display, --export-font-body). Retourne UNIQUEMENT le HTML modifié, sans balises ```, sans doctype. N\'invente JAMAIS de données vin.',
-          messages: [{ role: 'user', content: 'HTML actuel :\n' + _generatedHTML + '\n\nInstruction de modification : ' + text }]
+          max_tokens: 1000,
+          messages: [{ role: 'user', content:
+            'Tu mappes des colonnes de tableur.\n\n' +
+            'COLONNES DU FICHIER UTILISATEUR :\n' + headersList + '\n\n' +
+            'CHAMPS DCANT DISPONIBLES : ' + fieldKeys + '\n\n' +
+            'Exemples de mapping : "Producteur"→domaine, "AOC"→appellation, "Vintage"→millesime, "Code barre"→null\n\n' +
+            'Réponds UNIQUEMENT en JSON, sans texte autour :\n' +
+            '[{"templateCol":"...","dcantField":"cle_ou_null"}]'
+          }]
         })
       });
+
       if (!response.ok) {
-        if (response.status === 529) throw new Error('API surchargée, réessayez dans 30s');
         throw new Error('API ' + response.status);
       }
-      const data = await response.json();
-      _generatedHTML = data.content[0].text.trim()
-        .replace(/^```html?\s*/i, '').replace(/```\s*$/i, '').trim();
-      _renderPreview();
-      ta.value = '';
-      ta.style.height = 'auto';
+
+      const result = await response.json();
+      let raw = result.content[0].text.trim();
+      // Nettoyer markdown
+      raw = raw.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
+
+      const parsed = JSON.parse(raw);
+
+      _mappings = _templateHeaders.map(h => {
+        const match = parsed.find(m => m.templateCol === h);
+        const dcantField = match?.dcantField || null;
+        return {
+          templateCol: h,
+          dcantField: dcantField && DCANT_FIELDS[dcantField] ? dcantField : null,
+          defaultValue: ''
+        };
+      });
+
+      _renderMappings();
+      wizGo(3);
+
     } catch (e) {
-      console.error('Refinement error:', e);
-      toast('Erreur de modification : ' + (e.message || 'Réessayez.'));
+      console.error('Analyze error:', e);
+      toast('Erreur d\'analyse : ' + (e.message || 'Réessayez.'));
+      if (btn) btn.style.display = '';
     }
 
     if (spinner) spinner.style.display = 'none';
-    if (btn) btn.disabled = false;
   }
 
-  // ── SAVE TO HISTORY ──
-  async function _saveToHistory() {
+  // ── CARD 3 : Mapping ──
+  function _renderMappings() {
+    const container = g('exportMappingList');
+    if (!container) return;
+
+    container.innerHTML = _mappings.map((m, i) => {
+      const mapped = !!m.dcantField;
+      const icon = mapped ? '&#10003;' : '&#9888;';
+      const cls = mapped ? 'export-map-ok' : 'export-map-warn';
+
+      const selectOptions = '<option value="">(laisser vide)</option>' +
+        ALL_COLS.map(k =>
+          '<option value="' + k + '"' + (m.dcantField === k ? ' selected' : '') + '>' +
+          _esc(DCANT_FIELDS[k].label) + '</option>'
+        ).join('');
+
+      return '<div class="export-map-row ' + cls + '">' +
+        '<span class="export-map-icon">' + icon + '</span>' +
+        '<span class="export-map-col">' + _esc(m.templateCol) + '</span>' +
+        '<span class="export-map-arrow">&#8594;</span>' +
+        '<select class="export-map-select" onchange="Export.changeMapping(' + i + ',this.value)">' +
+          selectOptions +
+        '</select>' +
+        (!mapped ? '<input type="text" class="export-map-input" placeholder="Valeur par d\u00e9faut" value="' + _esc(m.defaultValue) + '" onchange="Export.setDefault(' + i + ',this.value)">' : '') +
+      '</div>';
+    }).join('');
+  }
+
+  function changeMapping(idx, field) {
+    if (!_mappings[idx]) return;
+    _mappings[idx].dcantField = field || null;
+    _mappings[idx].defaultValue = '';
+    _renderMappings();
+  }
+
+  function setDefault(idx, val) {
+    if (!_mappings[idx]) return;
+    _mappings[idx].defaultValue = val;
+  }
+
+  // ── Download template ──
+  function downloadTemplate() {
+    if (!_mappings.length) { toast('Aucun mapping.'); return; }
+    if (!_exportRows.length) { toast('Aucune donnée.'); return; }
+
+    // Tri : domaine puis millésime desc
+    const sorted = [..._exportRows].sort((a, b) => {
+      const d = (a.domaine || '').localeCompare(b.domaine || '', 'fr');
+      if (d !== 0) return d;
+      return (b.millesime || 0) - (a.millesime || 0);
+    });
+
+    const headers = _mappings.map(m => m.templateCol);
+    const rows = sorted.map(e =>
+      _mappings.map(m => {
+        if (m.dcantField && DCANT_FIELDS[m.dcantField]) {
+          return DCANT_FIELDS[m.dcantField].getter(e);
+        }
+        return m.defaultValue || '';
+      })
+    );
+
+    const name = 'dcant_' + (_templateFile?.name?.replace(/\.[^.]+$/, '') || 'export');
+
+    if (_selectedFormat === 'excel') {
+      _downloadExcel(headers, rows, name + '.xlsx');
+    } else {
+      _downloadCSV(headers, rows, name + '.csv');
+    }
+
+    toast(sorted.length + ' cuvée(s) exportée(s)');
+    _saveToHistory('Export modèle — ' + (_templateFile?.name || ''));
+    close();
+    setTimeout(() => Feedback.showBanner(5, 'historyContent'), 700);
+  }
+
+  // ── Génération fichiers ──
+  function _downloadCSV(headers, rows, filename) {
+    const lines = [
+      headers.map(h => '"' + String(h).replace(/"/g, '""') + '"').join(';'),
+      ...rows.map(row =>
+        row.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(';')
+      )
+    ];
+    const csv = '\uFEFF' + lines.join('\n');
+    _downloadBlob(csv, 'text/csv;charset=utf-8;', filename);
+  }
+
+  function _downloadExcel(headers, rows, filename) {
+    if (typeof XLSX === 'undefined') {
+      toast('SheetJS non chargé. Export CSV à la place.');
+      _downloadCSV(headers, rows, filename.replace('.xlsx', '.csv'));
+      return;
+    }
+    const data = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    // Largeur auto
+    ws['!cols'] = headers.map((h, i) => {
+      let max = h.length;
+      rows.forEach(r => { max = Math.max(max, String(r[i] || '').length); });
+      return { wch: Math.min(max + 2, 40) };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'DCANT');
+    XLSX.writeFile(wb, filename);
+  }
+
+  function _downloadBlob(content, type, filename) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+  }
+
+  // ── Historique ──
+  async function _saveToHistory(name) {
     if (!App.user) return;
     try {
       await Storage.saveExportHistory(App.user.id, {
-        name: _exportName || 'Export ' + new Date().toLocaleDateString('fr-FR'),
-        instruction: JSON.stringify(_config),
-        interpretation: _config,
+        name: name || 'Export ' + new Date().toLocaleDateString('fr-FR'),
+        instruction: _mode === 'rapide' ? 'Colonnes: ' + _selectedCols.join(', ') : 'Modèle: ' + (_templateFile?.name || '?'),
+        interpretation: {},
         selected_format: _selectedFormat,
-        template_custom: _templateCustom,
-        generated_html: _generatedHTML
+        template_custom: {},
+        generated_html: ''
       });
     } catch (e) {
       console.warn('Save export history error:', e);
     }
   }
 
-  // ── EXPORT HISTORY ──
   async function openHistory() {
     const overlay = g('exportHistOverlay');
     if (!overlay) return;
@@ -817,12 +530,7 @@ const Export = (() => {
     const body = g('exportHistBody');
     if (body) body.innerHTML = '<div style="text-align:center;padding:24px;color:var(--dimmer)">Chargement...</div>';
 
-    if (App.user) {
-      _exportHistory = await Storage.getExportHistory(App.user.id);
-    } else {
-      _exportHistory = [];
-    }
-
+    _exportHistory = App.user ? await Storage.getExportHistory(App.user.id) : [];
     _renderHistory();
   }
 
@@ -845,51 +553,13 @@ const Export = (() => {
       const instr = (item.instruction || '').length > 80 ? item.instruction.slice(0, 80) + '...' : item.instruction;
       return '<div class="export-hist-item">' +
         '<div class="export-hist-name">' + _esc(item.name) + '</div>' +
-        '<div class="export-hist-date">' + date + ' — ' + (item.selected_format || 'pdf').toUpperCase() + '</div>' +
+        '<div class="export-hist-date">' + date + ' — ' + (item.selected_format || 'csv').toUpperCase() + '</div>' +
         '<div class="export-hist-instr">' + _esc(instr) + '</div>' +
         '<div class="export-hist-actions">' +
-          '<button class="btn sm solid" onclick="Export.reuseHistory(' + idx + ')">Utiliser</button>' +
           '<button class="btn sm danger" onclick="Export.deleteHistory(\'' + item.id + '\',' + idx + ')">Supprimer</button>' +
         '</div>' +
       '</div>';
     }).join('');
-  }
-
-  function reuseHistory(idx) {
-    const item = _exportHistory[idx];
-    if (!item) return;
-
-    // Restaurer _config depuis l'historique
-    if (item.interpretation && typeof item.interpretation === 'object') {
-      _config = { ...item.interpretation };
-    }
-    _selectedFormat = item.selected_format || 'pdf';
-    _templateCustom = item.template_custom || { bgColor: '#ffffff', textColor: '#1a1a1a', accentColor: '#1a2744', fontPair: 'classic' };
-    _generatedHTML = item.generated_html || '';
-    _exportName = item.name || '';
-
-    // Update format pills
-    document.querySelectorAll('.export-fmt-pill').forEach(p =>
-      p.classList.toggle('active', p.dataset.fmt === _selectedFormat));
-
-    closeHistory();
-
-    if (_generatedHTML) {
-      _renderPreview();
-      // Update custom panel
-      const cpBg = g('exportColorBg');
-      const cpTxt = g('exportColorText');
-      const cpAcc = g('exportColorAccent');
-      if (cpBg) cpBg.value = _templateCustom.bgColor;
-      if (cpTxt) cpTxt.value = _templateCustom.textColor;
-      if (cpAcc) cpAcc.value = _templateCustom.accentColor;
-      document.querySelectorAll('.export-font-pill').forEach(p =>
-        p.classList.toggle('active', p.dataset.font === _templateCustom.fontPair));
-      wizGo(4);
-    } else {
-      _renderRecap();
-      wizGo(3);
-    }
   }
 
   async function deleteHistory(id, idx) {
@@ -900,18 +570,6 @@ const Export = (() => {
   }
 
   // ── Utilitaires ──
-  function _downloadBlob(content, type, filename) {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
-  }
-
   function _esc(s) {
     const d = document.createElement('div');
     d.textContent = s;
@@ -920,13 +578,12 @@ const Export = (() => {
 
   return {
     open, close,
-    exportDirect, selectType, selectOpt,
-    showOtherInput, submitCustomAnswer, answerQuestion, validateMultiSelect,
-    chatAutosize, toggleRecording,
-    selectFormat, generate,
-    updateCustom, selectFontPair, download,
-    sendRefinement,
-    openHistory, closeHistory, reuseHistory, deleteHistory,
+    selectMode, selectFormat,
+    toggleCol, downloadRapide,
+    onDrop, onDragOver, onDragLeave, onFileChange,
+    analyzeTemplate, changeMapping, setDefault,
+    downloadTemplate,
+    openHistory, closeHistory, deleteHistory,
     wizGo
   };
 
