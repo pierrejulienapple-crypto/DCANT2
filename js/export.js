@@ -1,36 +1,45 @@
 // ═══════════════════════════════════════════
-// DCANT — Module Export IA
-// Wizard plein écran : instruction → IA → aperçu → téléchargement
+// DCANT — Module Export v4
+// Rapide (CSV/Excel) + Template IA (mapping colonnes)
 // ═══════════════════════════════════════════
 
 const Export = (() => {
 
   // ── État privé ──
   let _wizCur = 1;
-  let _exportType = 'all';
+  let _mode = 'rapide';          // 'rapide' | 'template'
   let _exportRows = [];
-  let _instruction = '';
-  let _attachedFile = null;
-  let _interpretation = null;
-  let _selectedFormat = 'pdf';
-  let _generatedHTML = '';
-  let _templateCustom = {
-    bgColor: '#ffffff',
-    textColor: '#1a1a1a',
-    accentColor: '#1a2744',
-    fontPair: 'classic'
-  };
-  let _wizExInterval = null;
-  let _scrollY = 0;
-  let _exportName = '';
+  let _exportType = 'all';
+  let _selectedFormat = 'csv';
+  let _selectedCols = ['domaine', 'cuvee', 'appellation', 'millesime', 'pvttc'];
+  let _templateFile = null;
+  let _templateHeaders = [];
+  let _mappings = [];            // [{templateCol, dcantField, defaultValue}]
   let _exportHistory = [];
+  let _scrollY = 0;
 
-  const _FONT_PAIRS = {
-    classic:  { display: "'Fraunces', serif",           body: "'DM Sans', sans-serif",  label: 'Classique' },
-    moderne:  { display: "'Inter', sans-serif",         body: "'Inter', sans-serif",    label: 'Moderne' },
-    elegant:  { display: "'Playfair Display', serif",   body: "'Lato', sans-serif",     label: 'Élégant' },
-    ardoise:  { display: "'Caveat', cursive",           body: "'DM Sans', sans-serif",  label: 'Ardoise' }
+  // ── Champs DCANT ──
+  const DCANT_FIELDS = {
+    domaine:      { label: 'Domaine',        getter: e => e.domaine || '' },
+    cuvee:        { label: 'Cuvée',          getter: e => e.cuvee || '' },
+    appellation:  { label: 'Appellation',    getter: e => e.appellation || '' },
+    millesime:    { label: 'Millésime',      getter: e => e.millesime || '' },
+    prix_achat:   { label: 'Prix achat (€)', getter: e => e.prix_achat ?? '' },
+    pvht:         { label: 'PV HT (€)',      getter: e => e.pvht ?? '' },
+    pvttc:        { label: 'PV TTC (€)',     getter: e => e.pvttc ?? '' },
+    marge_euros:  { label: 'Marge (€)',      getter: e => e.marge_euros ?? '' },
+    marge_pct:    { label: 'Marge (%)',      getter: e => e.marge_pct ?? '' },
+    coeff:        { label: 'Coefficient',    getter: e => e.coeff ?? '' },
+    commentaire:  { label: 'Commentaire',    getter: e => e.commentaire || '' },
+    date:         { label: 'Date',           getter: e => e.created_at ? new Date(e.created_at).toLocaleDateString('fr-FR') : '' },
+    transport:    { label: 'Transport (€)',  getter: e => e.charges?.transport || 0 },
+    douane:       { label: 'Douane (€)',     getter: e => e.charges?.douane || 0 },
+    cout_revient: { label: 'Coût revient (€)', getter: e => e.cout_revient ?? '' },
+    mode:         { label: 'Mode',           getter: e => e.mode || '' },
+    valeur_mode:  { label: 'Valeur mode',    getter: e => e.mode_value ?? '' }
   };
+
+  const ALL_COLS = Object.keys(DCANT_FIELDS);
 
   // ── Scroll lock ──
   function _lockScroll() {
@@ -61,6 +70,11 @@ const Export = (() => {
     _exportType = type;
     _exportRows = rows;
     _reset();
+
+    // Afficher le nombre de cuvées
+    const sub = g('exportCountSub');
+    if (sub) sub.textContent = _exportRows.length + ' cuvée' + (_exportRows.length > 1 ? 's' : '') + ' sélectionnée' + (_exportRows.length > 1 ? 's' : '');
+
     g('exportOverlay').classList.add('open');
     _lockScroll();
   }
@@ -68,79 +82,63 @@ const Export = (() => {
   function close() {
     g('exportOverlay').classList.remove('open');
     _unlockScroll();
-    ExportVoice.stop();
-    clearInterval(_wizExInterval);
   }
 
   function _reset() {
     _wizCur = 1;
-    _instruction = '';
-    _attachedFile = null;
-    _interpretation = null;
-    _selectedFormat = 'pdf';
-    _generatedHTML = '';
-    _templateCustom = { bgColor: '#ffffff', textColor: '#1a1a1a', accentColor: '#1a2744', fontPair: 'classic' };
-    clearInterval(_wizExInterval);
+    _mode = 'rapide';
+    _selectedFormat = 'csv';
+    _selectedCols = ['domaine', 'cuvee', 'appellation', 'millesime', 'pvttc'];
+    _templateFile = null;
+    _templateHeaders = [];
+    _mappings = [];
+
     document.querySelectorAll('#exportCardsWrap .wiz-card').forEach(c =>
       c.classList.remove('active', 'exit-left'));
     const c1 = g('exportCard1');
     if (c1) c1.classList.add('active');
     _wizUpdateProgress(1);
-    const ta = g('exportInstrInput');
-    if (ta) ta.value = '';
-    const cb = g('exportConfirmBubble');
-    if (cb) cb.style.display = 'none';
-    const as = g('exportAttachStatus');
-    if (as) as.style.display = 'none';
-    const pc = g('exportPreviewContainer');
-    if (pc) pc.innerHTML = '';
-    const ri = g('exportRefineInput');
-    if (ri) ri.value = '';
-    _exportName = '';
-    // Reset color pickers
-    const cpBg = g('exportColorBg');
-    const cpTxt = g('exportColorText');
-    const cpAcc = g('exportColorAccent');
-    if (cpBg) cpBg.value = '#ffffff';
-    if (cpTxt) cpTxt.value = '#1a1a1a';
-    if (cpAcc) cpAcc.value = '#1a2744';
-    // Reset font pills
-    document.querySelectorAll('.export-font-pill').forEach(p =>
-      p.classList.toggle('active', p.dataset.font === 'classic'));
+
     // Reset format pills
     document.querySelectorAll('.export-fmt-pill').forEach(p =>
-      p.classList.toggle('active', p.dataset.fmt === 'pdf'));
+      p.classList.toggle('active', p.dataset.fmt === 'csv'));
+
+    // Reset panels
+    const pr = g('exportPanelRapide');
+    const pt = g('exportPanelTemplate');
+    if (pr) pr.style.display = 'none';
+    if (pt) pt.style.display = 'none';
+
+    // Reset dropzone
+    const dz = g('exportDropzone');
+    if (dz) dz.classList.remove('drag-over');
+    const ti = g('exportTemplateInfo');
+    if (ti) ti.style.display = 'none';
+    const ab = g('exportAnalyzeBtn');
+    if (ab) ab.style.display = 'none';
+    const as = g('exportAnalyzeSpinner');
+    if (as) as.style.display = 'none';
+
+    // Reset mapping
+    const ml = g('exportMappingList');
+    if (ml) ml.innerHTML = '';
   }
 
   // ── WIZARD NAVIGATION ──
-  const _WIZ_STEPS = [1, 'tuto', 3, 4, 5];
-  const _CARD_IDS = {
-    1: 'exportCard1',
-    'tuto': 'exportCardTuto',
-    3: 'exportCard3',
-    4: 'exportCard4',
-    5: 'exportCard5'
-  };
+  const _CARD_IDS = { 1: 'exportCard1', 2: 'exportCard2', 3: 'exportCard3' };
+  const _LABELS = { 1: 'Mode', 2: 'Configuration', 3: 'Mapping' };
 
   function wizGo(n) {
     const prevCard = document.querySelector('#exportCardsWrap .wiz-card.active');
     const nextCard = g(_CARD_IDS[n]);
     if (!nextCard || prevCard === nextCard) return;
 
-    const pi = _WIZ_STEPS.indexOf(_wizCur);
-    const ni = _WIZ_STEPS.indexOf(n);
-    const fwd = ni >= pi;
-
+    const fwd = n > _wizCur;
     document.querySelectorAll('#exportCardsWrap .wiz-card.exit-left')
       .forEach(c => c.classList.remove('exit-left'));
-
     if (fwd && prevCard) prevCard.classList.add('exit-left');
     if (prevCard) prevCard.classList.remove('active');
     nextCard.classList.add('active');
-
-    if (n === 'tuto') _startTutoCarousel();
-    else if (n === 3) _startPlaceholderRotation();
-    else clearInterval(_wizExInterval);
 
     setTimeout(() => {
       document.querySelectorAll('#exportCardsWrap .wiz-card.exit-left')
@@ -153,506 +151,377 @@ const Export = (() => {
   }
 
   function _wizUpdateProgress(n) {
-    const pcts = { 1: 20, 'tuto': 20, 3: 40, 4: 70, 5: 100 };
+    const pcts = { 1: 33, 2: 66, 3: 100 };
     const el = g('exportProgFill');
-    if (el) el.style.width = (pcts[n] || 20) + '%';
+    if (el) el.style.width = (pcts[n] || 33) + '%';
 
-    const dotMap = { 1: 1, 'tuto': 1, 3: 2, 4: 3, 5: 4 };
-    const active = dotMap[n] || 1;
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 3; i++) {
       const d = g('ewd' + i);
       if (!d) continue;
-      d.className = 'wiz-dot' + (i < active ? ' done' : i === active ? ' on' : '');
+      d.className = 'wiz-dot' + (i < n ? ' done' : i === n ? ' on' : '');
     }
-    const lbls = { 1: 'Mode', 'tuto': 'Mode', 3: 'Instructions', 4: 'Interprétation', 5: 'Aperçu' };
     const txt = g('exportStepTxt');
-    if (txt) txt.textContent = lbls[n] || '';
+    if (txt) txt.textContent = _LABELS[n] || '';
   }
 
-  // ── ÉTAPE 1 : Choix du mode ──
-  function exportDirect() {
-    close();
-    UI.exportCSV(_exportType);
-  }
-
-  function startAI() {
-    const tutoSeen = localStorage.getItem('dcant_export_tuto_seen');
-    if (!tutoSeen) {
-      wizGo('tuto');
+  // ── CARD 1 : Mode selection ──
+  function selectMode(mode) {
+    _mode = mode;
+    if (mode === 'rapide') {
+      _showRapidePanel();
     } else {
-      wizGo(3);
+      _showTemplatePanel();
     }
+    wizGo(2);
   }
 
-  // ── ÉTAPE 2 : Tuto ──
-  function dismissTuto() {
-    localStorage.setItem('dcant_export_tuto_seen', '1');
-    clearInterval(_wizExInterval);
-    wizGo(3);
+  // ── CARD 2a : Export rapide ──
+  function _showRapidePanel() {
+    const pr = g('exportPanelRapide');
+    const pt = g('exportPanelTemplate');
+    if (pr) pr.style.display = 'flex';
+    if (pt) pt.style.display = 'none';
+    _renderColPills();
   }
 
-  function _startTutoCarousel() {
-    clearInterval(_wizExInterval);
-    const slides = document.querySelectorAll('#exportTutoCarousel .wiz-tuto-slide');
-    if (!slides.length) return;
-    let cur = 0;
-    _wizExInterval = setInterval(() => {
-      slides[cur].classList.remove('active');
-      cur = (cur + 1) % slides.length;
-      slides[cur].classList.add('active');
-    }, 2200);
+  function _renderColPills() {
+    const container = g('exportColPills');
+    if (!container) return;
+
+    const QUICK_COLS = ['domaine', 'cuvee', 'appellation', 'millesime', 'prix_achat', 'pvht', 'pvttc', 'marge_euros', 'marge_pct', 'coeff', 'commentaire'];
+
+    container.innerHTML = QUICK_COLS.map(key => {
+      const f = DCANT_FIELDS[key];
+      const active = _selectedCols.includes(key);
+      return '<button class="export-opt-pill' + (active ? ' active' : '') + '" data-col="' + key + '" onclick="Export.toggleCol(\'' + key + '\')">' +
+        _esc(f.label.replace(/ \(.*\)/, '')) + '</button>';
+    }).join('');
   }
 
-  // ── ÉTAPE 3 : Instructions ──
-  function _startPlaceholderRotation() {
-    clearInterval(_wizExInterval);
-    const ta = g('exportInstrInput');
-    if (!ta) return;
-    const examples = [
-      'Une carte des vins triée par appellation',
-      'Un tarif pro en PDF avec les prix HT',
-      'Un visuel pour Instagram avec mes 5 meilleurs vins',
-      'Un tableau avec domaine, cuvée, prix TTC',
-      'Une fiche dégustation pour chaque vin'
-    ];
-    let i = 0;
-    ta.placeholder = examples[0];
-    _wizExInterval = setInterval(() => {
-      if (ta.value) { clearInterval(_wizExInterval); return; }
-      i = (i + 1) % examples.length;
-      ta.placeholder = examples[i];
-    }, 2800);
-  }
-
-  function chatAutosize(ta) {
-    ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
-  }
-
-  function toggleRecording() {
-    if (ExportVoice.isRecording()) ExportVoice.stop();
-    else ExportVoice.start();
-  }
-
-  function attachDocument() {
-    g('exportAttachInput').click();
-  }
-
-  function handleAttachFile(input) {
-    const file = input.files[0];
-    if (!file) return;
-    _attachedFile = file;
-    const status = g('exportAttachStatus');
-    if (status) {
-      status.style.display = 'block';
-      status.innerHTML = '<span style="margin-right:6px">📎</span>' + _esc(file.name);
+  function toggleCol(key) {
+    const idx = _selectedCols.indexOf(key);
+    if (idx >= 0) {
+      if (_selectedCols.length <= 1) { toast('Au moins une colonne.'); return; }
+      _selectedCols.splice(idx, 1);
+    } else {
+      _selectedCols.push(key);
     }
-  }
-
-  async function sendInstruction() {
-    if (ExportVoice.isRecording()) {
-      ExportVoice.stop();
-      await new Promise(r => setTimeout(r, 600));
-    }
-    const ta = g('exportInstrInput');
-    if (!ta) return;
-    const text = ta.value.trim();
-    if (!text) { toast('Décrivez ce que vous voulez exporter.'); return; }
-
-    _instruction = text;
-    const spinner = g('exportInstrSpinner');
-    const sendBtn = g('exportInstrBtn');
-    if (sendBtn) sendBtn.disabled = true;
-    if (spinner) spinner.style.display = 'flex';
-
-    try {
-      const sample = _exportRows.slice(0, 5).map(r =>
-        `${r.domaine} / ${r.cuvee || ''} / ${r.appellation || ''} / ${r.millesime || ''} / PA:${r.prix_achat}€ / PVHT:${r.pvht}€ / TTC:${r.pvttc}€ / Marge:${r.marge_euros}€ (${r.marge_pct}%) / Coeff:${r.coeff}`
-      ).join('\n');
-
-      const userContent = [];
-
-      if (_attachedFile) {
-        const isPdf = _attachedFile.type === 'application/pdf' || _attachedFile.name.endsWith('.pdf');
-        if (isPdf) {
-          const base64 = await _fileToBase64(_attachedFile);
-          userContent.push({
-            type: 'document',
-            source: { type: 'base64', media_type: 'application/pdf', data: base64 }
-          });
-        } else {
-          const content = await _attachedFile.text();
-          userContent.push({ type: 'text', text: 'Document de référence :\n' + content.slice(0, 2000) });
-        }
-      }
-
-      const instrText = _attachedFile
-        ? 'Instructions : "' + text + '"\nUn document de référence est joint (structure à reproduire).'
-        : 'Instructions : "' + text + '"';
-      userContent.push({ type: 'text', text: instrText });
-
-      const systemPrompt = 'Tu es un assistant export pour un outil de calcul de marge vin.\n' +
-        'L\'utilisateur a ' + _exportRows.length + ' vins dans son historique avec ces champs : domaine, cuvee, appellation, millesime, prix_achat, pvht, pvttc, marge_euros, marge_pct, coeff, commentaire.\n\n' +
-        'Exemples de ses données :\n' + sample + '\n\n' +
-        'Réponds UNIQUEMENT en JSON valide, sans texte autour, sans markdown :\n' +
-        '{"filtre":"description du filtre ou tous","tri":"critère de tri ou aucun","mise_en_page":"type de document (tableau, carte des vins, tarif, visuel...)","colonnes":["col1","col2"],"contenu_genere":"descriptions ou titres générés, ou null","resume":"phrase résumant ce qui sera fait"}\n\n' +
-        'N\'invente JAMAIS de données vin. Utilise uniquement les données fournies.';
-
-      const response = await fetch('/api/ai', {
-        method: 'POST',
-        headers: await authHeaders(),
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 800,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userContent }]
-        })
-      });
-
-      if (!response.ok) {
-        if (response.status === 529) throw new Error('API surchargée, réessayez dans 30s');
-        throw new Error('API ' + response.status);
-      }
-      const data = await response.json();
-      const raw = data.content[0].text.trim()
-        .replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-      _interpretation = JSON.parse(raw);
-
-      // Nom d'export généré localement (pas d'appel AI)
-      _exportName = _generateExportNameLocal();
-
-      _renderInterpretation();
-      wizGo(4);
-
-    } catch (e) {
-      console.error('Export instruction error:', e);
-      toast('Erreur : ' + (e.message || 'Réessayez.'));
-    }
-
-    if (spinner) spinner.style.display = 'none';
-    if (sendBtn) sendBtn.disabled = false;
-  }
-
-  function _fileToBase64(file) {
-    return new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result.split(',')[1]);
-      r.onerror = rej;
-      r.readAsDataURL(file);
-    });
-  }
-
-  // ── ÉTAPE 4 : Interprétation + choix format ──
-  function _renderInterpretation() {
-    const bubble = g('exportConfirmBubble');
-    const rules = g('exportConfirmRules');
-    if (!bubble || !rules || !_interpretation) return;
-
-    const items = [
-      { k: 'Sélection', v: _interpretation.filtre || 'tous' },
-      { k: 'Tri', v: _interpretation.tri || 'aucun' },
-      { k: 'Mise en page', v: _interpretation.mise_en_page || 'tableau' },
-      { k: 'Colonnes', v: (_interpretation.colonnes || []).join(', ') || '-' }
-    ];
-    if (_interpretation.contenu_genere) {
-      items.push({ k: 'Contenu', v: _interpretation.contenu_genere });
-    }
-
-    rules.innerHTML = items.map(item =>
-      '<div class="wiz-confirm-rule">' +
-        '<span class="wiz-confirm-num">' + _esc(item.k) + '</span>' +
-        '<span>' + _esc(item.v) + '</span>' +
-      '</div>'
-    ).join('');
-
-    const resume = g('exportResume');
-    if (resume) resume.textContent = _interpretation.resume || '';
-
-    bubble.style.display = 'block';
+    // Update pill
+    const pill = document.querySelector('.export-opt-pill[data-col="' + key + '"]');
+    if (pill) pill.classList.toggle('active', _selectedCols.includes(key));
   }
 
   function selectFormat(fmt) {
-    _selectedFormat = fmt;
-    _selectFormatPill(fmt);
-  }
-
-  function _selectFormatPill(fmt) {
     _selectedFormat = fmt;
     document.querySelectorAll('.export-fmt-pill').forEach(p =>
       p.classList.toggle('active', p.dataset.fmt === fmt));
   }
 
-  function editInstruction() {
-    const ta = g('exportInstrInput');
-    if (ta) ta.value = _instruction;
-    wizGo(3);
-  }
+  // ── Download rapide (0 IA) ──
+  function downloadRapide() {
+    if (!_exportRows.length) { toast('Aucune donnée.'); return; }
+    if (!_selectedCols.length) { toast('Sélectionnez au moins une colonne.'); return; }
 
-  async function generate() {
-    const spinner = g('exportGenSpinner');
-    const btn = g('exportGenBtn');
-    if (btn) btn.disabled = true;
-    if (spinner) spinner.style.display = 'flex';
-
-    try {
-      if (_selectedFormat === 'csv' || _selectedFormat === 'excel') {
-        await _generateCSV();
-      } else {
-        await _generateHTML();
-        wizGo(5);
-      }
-    } catch (e) {
-      console.error('Generate error:', e);
-      toast('Erreur de génération. Export CSV en fallback.');
-      _generateCSVFallback();
-    }
-
-    if (spinner) spinner.style.display = 'none';
-    if (btn) btn.disabled = false;
-  }
-
-  async function _generateCSV() {
-    const dataLines = _exportRows.map(r =>
-      r.domaine + '|' + (r.cuvee || '') + '|' + (r.appellation || '') + '|' + (r.millesime || '') +
-      '|PA:' + r.prix_achat + '|PVHT:' + r.pvht + '|TTC:' + r.pvttc +
-      '|Marge:' + r.marge_euros + '|Coeff:' + r.coeff + '|' + (r.commentaire || '')
-    ).join('\n');
-
-    const response = await fetch('/api/ai', {
-      method: 'POST',
-      headers: await authHeaders(),
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4000,
-        messages: [{ role: 'user', content:
-          'Génère un fichier CSV avec ces colonnes exactes : ' + (_interpretation.colonnes || []).join(', ') + '\n' +
-          'Séparateur : ";"\n' +
-          'Tri : ' + (_interpretation.tri || 'aucun') + '\n' +
-          'Filtre : ' + (_interpretation.filtre || 'tous') + '\n' +
-          'Données (' + _exportRows.length + ' lignes) :\n' + dataLines + '\n' +
-          'Retourne UNIQUEMENT le CSV, avec ligne d\'en-tête, rien d\'autre. N\'invente aucune donnée.'
-        }]
-      })
+    // Tri : domaine puis millésime desc
+    const sorted = [..._exportRows].sort((a, b) => {
+      const d = (a.domaine || '').localeCompare(b.domaine || '', 'fr');
+      if (d !== 0) return d;
+      return (b.millesime || 0) - (a.millesime || 0);
     });
-    if (!response.ok) {
-      if (response.status === 529) throw new Error('API surchargée, réessayez dans 30s');
-      throw new Error('API ' + response.status);
+
+    const headers = _selectedCols.map(k => DCANT_FIELDS[k].label);
+    const rows = sorted.map(e =>
+      _selectedCols.map(k => DCANT_FIELDS[k].getter(e))
+    );
+
+    if (_selectedFormat === 'excel') {
+      _downloadExcel(headers, rows, 'dcant_export.xlsx');
+    } else {
+      _downloadCSV(headers, rows, 'dcant_export.csv');
     }
-    const data = await response.json();
-    const csv = data.content[0].text.trim().replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
-    _downloadBlob('\uFEFF' + csv, 'text/csv;charset=utf-8;', 'dcant_export.csv');
-    toast(_exportRows.length + ' cuvée(s) exportée(s)');
-    _saveToHistory();
+
+    toast(sorted.length + ' cuvée(s) exportée(s)');
+    _saveToHistory('Export rapide');
     close();
     setTimeout(() => Feedback.showBanner(5, 'historyContent'), 700);
   }
 
-  function _generateCSVFallback() {
-    const csv = Calcul.genererCSV(_exportRows);
-    _downloadBlob(csv, 'text/csv;charset=utf-8;', 'dcant_export.csv');
-    toast('Export CSV téléchargé (fallback)');
-    close();
+  // ── CARD 2b : Upload template ──
+  function _showTemplatePanel() {
+    const pr = g('exportPanelRapide');
+    const pt = g('exportPanelTemplate');
+    if (pr) pr.style.display = 'none';
+    if (pt) pt.style.display = 'flex';
   }
 
-  async function _generateHTML() {
-    const dataJson = _exportRows.map(r => JSON.stringify({
-      domaine: r.domaine, cuvee: r.cuvee || '', appellation: r.appellation || '',
-      millesime: r.millesime || '', prix_achat: r.prix_achat, pvht: r.pvht,
-      pvttc: r.pvttc, marge_euros: r.marge_euros, marge_pct: r.marge_pct,
-      coeff: r.coeff, commentaire: r.commentaire || ''
-    })).join('\n');
+  function onDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    g('exportDropzone')?.classList.add('drag-over');
+  }
 
-    const systemPrompt = 'Tu génères du HTML pour un export de données vin. Le HTML sera rendu dans un conteneur de 800px de large.\n' +
-      'Utilise du CSS inline pour le style. Le design doit être élégant et professionnel.\n' +
-      'Utilise ces CSS variables pour les couleurs et polices :\n' +
-      '- var(--export-bg) pour le fond\n' +
-      '- var(--export-text) pour le texte\n' +
-      '- var(--export-accent) pour les accents (titres, bordures)\n' +
-      '- var(--export-font-display) pour les titres\n' +
-      '- var(--export-font-body) pour le corps de texte\n\n' +
-      'IMPORTANT : N\'invente JAMAIS de données vin. Utilise UNIQUEMENT les données JSON fournies ci-dessous.\n' +
-      'Retourne UNIQUEMENT le HTML, sans balises ```, sans doctype, juste le contenu.';
+  function onDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    g('exportDropzone')?.classList.remove('drag-over');
+  }
 
-    const userPrompt = 'Mise en page : ' + (_interpretation.mise_en_page || 'tableau') + '\n' +
-      'Colonnes : ' + ((_interpretation.colonnes || []).join(', ') || 'toutes') + '\n' +
-      'Tri : ' + (_interpretation.tri || 'aucun') + '\n' +
-      'Filtre : ' + (_interpretation.filtre || 'tous') + '\n' +
-      (_interpretation.contenu_genere ? 'Contenu additionnel : ' + _interpretation.contenu_genere + '\n' : '') +
-      'Données (' + _exportRows.length + ' vins) :\n' + dataJson;
+  function onDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    g('exportDropzone')?.classList.remove('drag-over');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) _handleFile(file);
+  }
 
-    const response = await fetch('/api/ai', {
-      method: 'POST',
-      headers: await authHeaders(),
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }]
-      })
-    });
-    if (!response.ok) {
-      if (response.status === 529) throw new Error('API surchargée, réessayez dans 30s');
-      throw new Error('API ' + response.status);
+  function onFileChange(e) {
+    const file = e.target?.files?.[0];
+    if (file) _handleFile(file);
+  }
+
+  function _handleFile(file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['csv', 'xlsx', 'xls'].includes(ext)) {
+      toast('Format non supporté. Utilisez CSV, XLSX ou XLS.');
+      return;
     }
-    const data = await response.json();
-    _generatedHTML = data.content[0].text.trim()
-      .replace(/^```html?\s*/i, '').replace(/```\s*$/i, '').trim();
-
-    _renderPreview();
+    _templateFile = file;
+    const nameEl = g('exportTemplateName');
+    if (nameEl) nameEl.textContent = file.name + ' (' + _formatSize(file.size) + ')';
+    const info = g('exportTemplateInfo');
+    if (info) info.style.display = '';
+    const btn = g('exportAnalyzeBtn');
+    if (btn) btn.style.display = '';
   }
 
-  // ── ÉTAPE 5 : Aperçu + personnalisation ──
-  function _renderPreview() {
-    const container = g('exportPreviewContainer');
-    if (!container) return;
-
-    const fp = _FONT_PAIRS[_templateCustom.fontPair] || _FONT_PAIRS.classic;
-    container.style.setProperty('--export-bg', _templateCustom.bgColor);
-    container.style.setProperty('--export-text', _templateCustom.textColor);
-    container.style.setProperty('--export-accent', _templateCustom.accentColor);
-    container.style.setProperty('--export-font-display', fp.display);
-    container.style.setProperty('--export-font-body', fp.body);
-    container.style.background = _templateCustom.bgColor;
-    container.style.color = _templateCustom.textColor;
-    container.innerHTML = _generatedHTML;
+  function _formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' o';
+    if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' Ko';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
   }
 
-  function updateCustom(prop, val) {
-    _templateCustom[prop] = val;
-    _renderPreview();
-  }
+  // ── Analyze template (1 appel IA) ──
+  async function analyzeTemplate() {
+    if (!_templateFile) { toast('Aucun fichier sélectionné.'); return; }
 
-  function selectFontPair(key) {
-    _templateCustom.fontPair = key;
-    document.querySelectorAll('.export-font-pill').forEach(p =>
-      p.classList.toggle('active', p.dataset.font === key));
-    _renderPreview();
-  }
-
-  async function download() {
-    const container = g('exportPreviewContainer');
-    if (!container) return;
-
-    toast('Génération du fichier…');
-
-    try {
-      if (typeof html2canvas === 'undefined') {
-        throw new Error('html2canvas non chargé');
-      }
-
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: _templateCustom.bgColor,
-        width: container.scrollWidth,
-        height: container.scrollHeight
-      });
-
-      if (_selectedFormat === 'pdf') {
-        if (typeof window.jspdf === 'undefined') {
-          throw new Error('jsPDF non chargé');
-        }
-        const { jsPDF } = window.jspdf;
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        const pxW = canvas.width;
-        const pxH = canvas.height;
-        const pdfW = 210;
-        const pdfH = (pxH * pdfW) / pxW;
-        const pdf = new jsPDF({ unit: 'mm', format: [pdfW, Math.max(pdfH, 297)] });
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
-        pdf.save('dcant_export.pdf');
-        toast('PDF téléchargé');
-      } else {
-        canvas.toBlob(blob => {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'dcant_export.jpg';
-          a.target = '_blank';
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
-          toast('Image téléchargée');
-        }, 'image/jpeg', 0.95);
-      }
-
-      // Save to history after successful download
-      _saveToHistory();
-    } catch (e) {
-      console.error('Download error:', e);
-      toast('Erreur : ' + e.message);
+    if (typeof XLSX === 'undefined') {
+      toast('SheetJS non chargé. Rechargez la page.');
+      return;
     }
-  }
 
-  // ── REFINEMENT (Chat Card 5) ──
-  async function sendRefinement() {
-    const ta = g('exportRefineInput');
-    if (!ta) return;
-    const text = ta.value.trim();
-    if (!text || !_generatedHTML) return;
-
-    const spinner = g('exportRefineSpinner');
-    const btn = g('exportRefineBtn');
-    if (btn) btn.disabled = true;
+    const spinner = g('exportAnalyzeSpinner');
+    const btn = g('exportAnalyzeBtn');
     if (spinner) spinner.style.display = 'flex';
+    if (btn) btn.style.display = 'none';
 
     try {
+      // Lire les headers avec SheetJS
+      const data = await _templateFile.arrayBuffer();
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+      if (!rows.length || !rows[0].length) {
+        toast('Fichier vide ou sans en-têtes.');
+        if (spinner) spinner.style.display = 'none';
+        if (btn) btn.style.display = '';
+        return;
+      }
+
+      _templateHeaders = rows[0].map(h => String(h).trim()).filter(Boolean);
+
+      // Appel IA pour le mapping
+      const fieldKeys = ALL_COLS.join(', ');
+      const headersList = _templateHeaders.map((h, i) => (i + 1) + '. "' + h + '"').join('\n');
+
       const response = await fetch('/api/ai', {
         method: 'POST',
         headers: await authHeaders(),
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 4000,
-          system: 'Tu modifies du HTML existant selon une instruction. Conserve les CSS variables (--export-bg, --export-text, --export-accent, --export-font-display, --export-font-body). Retourne UNIQUEMENT le HTML modifié, sans balises ```, sans doctype. N\'invente JAMAIS de données vin.',
-          messages: [{ role: 'user', content: 'HTML actuel :\n' + _generatedHTML + '\n\nInstruction de modification : ' + text }]
+          max_tokens: 1000,
+          messages: [{ role: 'user', content:
+            'Tu mappes des colonnes de tableur.\n\n' +
+            'COLONNES DU FICHIER UTILISATEUR :\n' + headersList + '\n\n' +
+            'CHAMPS DCANT DISPONIBLES : ' + fieldKeys + '\n\n' +
+            'Exemples de mapping : "Producteur"→domaine, "AOC"→appellation, "Vintage"→millesime, "Code barre"→null\n\n' +
+            'Réponds UNIQUEMENT en JSON, sans texte autour :\n' +
+            '[{"templateCol":"...","dcantField":"cle_ou_null"}]'
+          }]
         })
       });
+
       if (!response.ok) {
-        if (response.status === 529) throw new Error('API surchargée, réessayez dans 30s');
         throw new Error('API ' + response.status);
       }
-      const data = await response.json();
-      _generatedHTML = data.content[0].text.trim()
-        .replace(/^```html?\s*/i, '').replace(/```\s*$/i, '').trim();
-      _renderPreview();
-      ta.value = '';
-      ta.style.height = 'auto';
+
+      const result = await response.json();
+      let raw = result.content[0].text.trim();
+      // Nettoyer markdown
+      raw = raw.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
+
+      const parsed = JSON.parse(raw);
+
+      _mappings = _templateHeaders.map(h => {
+        const match = parsed.find(m => m.templateCol === h);
+        const dcantField = match?.dcantField || null;
+        return {
+          templateCol: h,
+          dcantField: dcantField && DCANT_FIELDS[dcantField] ? dcantField : null,
+          defaultValue: ''
+        };
+      });
+
+      _renderMappings();
+      wizGo(3);
+
     } catch (e) {
-      console.error('Refinement error:', e);
-      toast('Erreur de modification : ' + (e.message || 'Réessayez.'));
+      console.error('Analyze error:', e);
+      toast('Erreur d\'analyse : ' + (e.message || 'Réessayez.'));
+      if (btn) btn.style.display = '';
     }
 
     if (spinner) spinner.style.display = 'none';
-    if (btn) btn.disabled = false;
   }
 
-  // ── AI NAMING ──
-  function _generateExportNameLocal() {
-    // Extrait un nom court depuis l'instruction (pas d'appel API)
-    const words = _instruction.replace(/[^\wàâäéèêëïîôùûüÿçœæ\s]/gi, '').trim().split(/\s+/);
-    const short = words.slice(0, 5).join(' ');
-    const fmt = _selectedFormat.toUpperCase();
-    return short ? short + ' (' + fmt + ')' : 'Export ' + fmt + ' ' + new Date().toLocaleDateString('fr-FR');
+  // ── CARD 3 : Mapping ──
+  function _renderMappings() {
+    const container = g('exportMappingList');
+    if (!container) return;
+
+    container.innerHTML = _mappings.map((m, i) => {
+      const mapped = !!m.dcantField;
+      const icon = mapped ? '&#10003;' : '&#9888;';
+      const cls = mapped ? 'export-map-ok' : 'export-map-warn';
+
+      const selectOptions = '<option value="">(laisser vide)</option>' +
+        ALL_COLS.map(k =>
+          '<option value="' + k + '"' + (m.dcantField === k ? ' selected' : '') + '>' +
+          _esc(DCANT_FIELDS[k].label) + '</option>'
+        ).join('');
+
+      return '<div class="export-map-row ' + cls + '">' +
+        '<span class="export-map-icon">' + icon + '</span>' +
+        '<span class="export-map-col">' + _esc(m.templateCol) + '</span>' +
+        '<span class="export-map-arrow">&#8594;</span>' +
+        '<select class="export-map-select" onchange="Export.changeMapping(' + i + ',this.value)">' +
+          selectOptions +
+        '</select>' +
+        (!mapped ? '<input type="text" class="export-map-input" placeholder="Valeur par d\u00e9faut" value="' + _esc(m.defaultValue) + '" onchange="Export.setDefault(' + i + ',this.value)">' : '') +
+      '</div>';
+    }).join('');
   }
 
-  // ── SAVE TO HISTORY ──
-  async function _saveToHistory() {
+  function changeMapping(idx, field) {
+    if (!_mappings[idx]) return;
+    _mappings[idx].dcantField = field || null;
+    _mappings[idx].defaultValue = '';
+    _renderMappings();
+  }
+
+  function setDefault(idx, val) {
+    if (!_mappings[idx]) return;
+    _mappings[idx].defaultValue = val;
+  }
+
+  // ── Download template ──
+  function downloadTemplate() {
+    if (!_mappings.length) { toast('Aucun mapping.'); return; }
+    if (!_exportRows.length) { toast('Aucune donnée.'); return; }
+
+    // Tri : domaine puis millésime desc
+    const sorted = [..._exportRows].sort((a, b) => {
+      const d = (a.domaine || '').localeCompare(b.domaine || '', 'fr');
+      if (d !== 0) return d;
+      return (b.millesime || 0) - (a.millesime || 0);
+    });
+
+    const headers = _mappings.map(m => m.templateCol);
+    const rows = sorted.map(e =>
+      _mappings.map(m => {
+        if (m.dcantField && DCANT_FIELDS[m.dcantField]) {
+          return DCANT_FIELDS[m.dcantField].getter(e);
+        }
+        return m.defaultValue || '';
+      })
+    );
+
+    const name = 'dcant_' + (_templateFile?.name?.replace(/\.[^.]+$/, '') || 'export');
+
+    if (_selectedFormat === 'excel') {
+      _downloadExcel(headers, rows, name + '.xlsx');
+    } else {
+      _downloadCSV(headers, rows, name + '.csv');
+    }
+
+    toast(sorted.length + ' cuvée(s) exportée(s)');
+    _saveToHistory('Export modèle — ' + (_templateFile?.name || ''));
+    close();
+    setTimeout(() => Feedback.showBanner(5, 'historyContent'), 700);
+  }
+
+  // ── Génération fichiers ──
+  function _downloadCSV(headers, rows, filename) {
+    const lines = [
+      headers.map(h => '"' + String(h).replace(/"/g, '""') + '"').join(';'),
+      ...rows.map(row =>
+        row.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(';')
+      )
+    ];
+    const csv = '\uFEFF' + lines.join('\n');
+    _downloadBlob(csv, 'text/csv;charset=utf-8;', filename);
+  }
+
+  function _downloadExcel(headers, rows, filename) {
+    if (typeof XLSX === 'undefined') {
+      toast('SheetJS non chargé. Export CSV à la place.');
+      _downloadCSV(headers, rows, filename.replace('.xlsx', '.csv'));
+      return;
+    }
+    const data = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    // Largeur auto
+    ws['!cols'] = headers.map((h, i) => {
+      let max = h.length;
+      rows.forEach(r => { max = Math.max(max, String(r[i] || '').length); });
+      return { wch: Math.min(max + 2, 40) };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'DCANT');
+    XLSX.writeFile(wb, filename);
+  }
+
+  function _downloadBlob(content, type, filename) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+  }
+
+  // ── Historique ──
+  async function _saveToHistory(name) {
     if (!App.user) return;
     try {
       await Storage.saveExportHistory(App.user.id, {
-        name: _exportName || 'Export ' + new Date().toLocaleDateString('fr-FR'),
-        instruction: _instruction,
-        interpretation: _interpretation,
+        name: name || 'Export ' + new Date().toLocaleDateString('fr-FR'),
+        instruction: _mode === 'rapide' ? 'Colonnes: ' + _selectedCols.join(', ') : 'Modèle: ' + (_templateFile?.name || '?'),
+        interpretation: {},
         selected_format: _selectedFormat,
-        template_custom: _templateCustom,
-        generated_html: _generatedHTML
+        template_custom: {},
+        generated_html: ''
       });
     } catch (e) {
       console.warn('Save export history error:', e);
     }
   }
 
-  // ── EXPORT HISTORY ──
   async function openHistory() {
     const overlay = g('exportHistOverlay');
     if (!overlay) return;
@@ -661,12 +530,7 @@ const Export = (() => {
     const body = g('exportHistBody');
     if (body) body.innerHTML = '<div style="text-align:center;padding:24px;color:var(--dimmer)">Chargement...</div>';
 
-    if (App.user) {
-      _exportHistory = await Storage.getExportHistory(App.user.id);
-    } else {
-      _exportHistory = [];
-    }
-
+    _exportHistory = App.user ? await Storage.getExportHistory(App.user.id) : [];
     _renderHistory();
   }
 
@@ -689,53 +553,13 @@ const Export = (() => {
       const instr = (item.instruction || '').length > 80 ? item.instruction.slice(0, 80) + '...' : item.instruction;
       return '<div class="export-hist-item">' +
         '<div class="export-hist-name">' + _esc(item.name) + '</div>' +
-        '<div class="export-hist-date">' + date + ' — ' + (item.selected_format || 'pdf').toUpperCase() + '</div>' +
+        '<div class="export-hist-date">' + date + ' — ' + (item.selected_format || 'csv').toUpperCase() + '</div>' +
         '<div class="export-hist-instr">' + _esc(instr) + '</div>' +
         '<div class="export-hist-actions">' +
-          '<button class="btn sm solid" onclick="Export.reuseHistory(' + idx + ')">Utiliser</button>' +
           '<button class="btn sm danger" onclick="Export.deleteHistory(\'' + item.id + '\',' + idx + ')">Supprimer</button>' +
         '</div>' +
       '</div>';
     }).join('');
-  }
-
-  function reuseHistory(idx) {
-    const item = _exportHistory[idx];
-    if (!item) return;
-
-    _instruction = item.instruction || '';
-    _interpretation = item.interpretation || null;
-    _selectedFormat = item.selected_format || 'pdf';
-    _templateCustom = item.template_custom || { bgColor: '#ffffff', textColor: '#1a1a1a', accentColor: '#1a2744', fontPair: 'classic' };
-    _generatedHTML = item.generated_html || '';
-    _exportName = item.name || '';
-
-    // Update format pills
-    document.querySelectorAll('.export-fmt-pill').forEach(p =>
-      p.classList.toggle('active', p.dataset.fmt === _selectedFormat));
-
-    closeHistory();
-
-    if (_generatedHTML) {
-      _renderPreview();
-      // Update custom panel
-      const cpBg = g('exportColorBg');
-      const cpTxt = g('exportColorText');
-      const cpAcc = g('exportColorAccent');
-      if (cpBg) cpBg.value = _templateCustom.bgColor;
-      if (cpTxt) cpTxt.value = _templateCustom.textColor;
-      if (cpAcc) cpAcc.value = _templateCustom.accentColor;
-      document.querySelectorAll('.export-font-pill').forEach(p =>
-        p.classList.toggle('active', p.dataset.font === _templateCustom.fontPair));
-      wizGo(5);
-    } else if (_interpretation) {
-      _renderInterpretation();
-      wizGo(4);
-    } else {
-      const ta = g('exportInstrInput');
-      if (ta) ta.value = _instruction;
-      wizGo(3);
-    }
   }
 
   async function deleteHistory(id, idx) {
@@ -746,18 +570,6 @@ const Export = (() => {
   }
 
   // ── Utilitaires ──
-  function _downloadBlob(content, type, filename) {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
-  }
-
   function _esc(s) {
     const d = document.createElement('div');
     d.textContent = s;
@@ -766,13 +578,12 @@ const Export = (() => {
 
   return {
     open, close,
-    exportDirect, startAI,
-    dismissTuto,
-    chatAutosize, toggleRecording, attachDocument, handleAttachFile, sendInstruction,
-    selectFormat, editInstruction, generate,
-    updateCustom, selectFontPair, download,
-    sendRefinement,
-    openHistory, closeHistory, reuseHistory, deleteHistory,
+    selectMode, selectFormat,
+    toggleCol, downloadRapide,
+    onDrop, onDragOver, onDragLeave, onFileChange,
+    analyzeTemplate, changeMapping, setDefault,
+    downloadTemplate,
+    openHistory, closeHistory, deleteHistory,
     wizGo
   };
 
