@@ -20,7 +20,7 @@ const UI = (() => {
     if (name === 'historique') {
       renderHistorique();
       if (!Storage.Local.feedbackDone(4) && App.user) {
-        setTimeout(() => Feedback.open(4), 5000);
+        setTimeout(() => Feedback.showBanner(4, 'historyContent'), 2000);
       }
     }
   }
@@ -722,7 +722,7 @@ const UI = (() => {
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
     toast(rows.length + ' cuvée(s) exportée(s)');
     track('export_csv', { nb: rows.length, type });
-    setTimeout(() => Feedback.open(5), 700);
+    setTimeout(() => Feedback.showBanner(5, 'historyContent'), 700);
   }
 
   // ── ADMIN ──
