@@ -120,7 +120,7 @@ const UI = (() => {
         App.historique = [];
         App.modeles = [];
         toast('Déconnecté');
-      });
+      }, 'Se déconnecter');
     } else {
       openAuth('login');
     }

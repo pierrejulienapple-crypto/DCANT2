@@ -7,7 +7,7 @@
 
 const Feedback = (() => {
 
-  const TOTAL = 5;
+  const TOTAL = 6;
 
   const SHEETS = {
     1: {
@@ -54,6 +54,15 @@ const Feedback = (() => {
         { label: "Oui",               val: "oui" },
         { label: "Testé une fois",     val: "once" },
         { label: "Pas encore essayé",  val: "non" }
+      ],
+      hasOther: false
+    },
+    6: {
+      q: "L'import de documents vous est-il utile ?",
+      opts: [
+        { label: "Oui, très utile",   val: "oui" },
+        { label: "Pratique parfois",   val: "parfois" },
+        { label: "Pas vraiment",       val: "non" }
       ],
       hasOther: false
     }

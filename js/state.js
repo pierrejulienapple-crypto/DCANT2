@@ -41,9 +41,10 @@ function toast(msg, dur) {
   setTimeout(() => e.classList.remove('show'), dur || 2800);
 }
 
-function askConfirm(msg, cb) {
+function askConfirm(msg, cb, btnLabel) {
   s('confirmMsg', msg);
   App.ui.confirmCallback = cb;
+  g('confirmBtn').textContent = btnLabel || 'Supprimer';
   g('confirmOverlay').classList.add('open');
 }
 function confirmDo() {

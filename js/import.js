@@ -883,7 +883,10 @@ const Import = (() => {
 
     // Ferme le modal et va sur l'historique
     close();
-    setTimeout(() => UI.showPage('historique'), 300);
+    setTimeout(() => {
+      UI.showPage('historique');
+      setTimeout(() => Feedback.showBanner(6, 'historyContent'), 1500);
+    }, 300);
   }
 
   async function _mergeDuplicateDomains(userEmail) {
