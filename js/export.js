@@ -127,14 +127,17 @@ const Export = (() => {
     if (ab) ab.style.display = 'none';
     const as = g('exportAnalyzeSpinner');
     if (as) as.style.display = 'none';
-    const td = g('exportTplDesc');
-    if (td) td.style.display = 'none';
+    const chatBar = g('exportTplChatBar');
+    if (chatBar) chatBar.style.display = 'none';
     const tinput = g('exportTplInput');
     if (tinput) tinput.value = '';
 
     // Reset mapping
+    _selectedMappingIdx = -1;
     const ml = g('exportMappingList');
     if (ml) ml.innerHTML = '';
+    const me = g('exportMapEditor');
+    if (me) me.style.display = 'none';
   }
 
   // ── WIZARD NAVIGATION ──
@@ -304,9 +307,9 @@ const Export = (() => {
     const btn = g('exportAnalyzeBtn');
     if (btn) btn.style.display = '';
 
-    // Afficher la zone description (toujours, mais surtout utile pour non-spreadsheet)
-    const desc = g('exportTplDesc');
-    if (desc) desc.style.display = '';
+    // Afficher la barre de description (comme l'import)
+    const chatBar = g('exportTplChatBar');
+    if (chatBar) chatBar.style.display = '';
   }
 
   function _formatSize(bytes) {
@@ -458,44 +461,74 @@ const Export = (() => {
     if (spinner) spinner.style.display = 'none';
   }
 
-  // ── CARD 3 : Mapping ──
+  // ── CARD 3 : Mapping (pills + éditeur inline) ──
+  let _selectedMappingIdx = -1;
+
   function _renderMappings() {
     const container = g('exportMappingList');
     if (!container) return;
 
     container.innerHTML = _mappings.map((m, i) => {
       const mapped = !!m.dcantField;
-      const icon = mapped ? '&#10003;' : '&#9888;';
-      const cls = mapped ? 'export-map-ok' : 'export-map-warn';
-
-      const selectOptions = '<option value="">(laisser vide)</option>' +
-        ALL_COLS.map(k =>
-          '<option value="' + k + '"' + (m.dcantField === k ? ' selected' : '') + '>' +
-          _esc(DCANT_FIELDS[k].label) + '</option>'
-        ).join('');
-
-      return '<div class="export-map-row ' + cls + '">' +
-        '<span class="export-map-icon">' + icon + '</span>' +
-        '<span class="export-map-col">' + _esc(m.templateCol) + '</span>' +
-        '<span class="export-map-arrow">&#8594;</span>' +
-        '<select class="export-map-select" onchange="Export.changeMapping(' + i + ',this.value)">' +
-          selectOptions +
-        '</select>' +
-        (!mapped ? '<input type="text" class="export-map-input" placeholder="Valeur par d\u00e9faut" value="' + _esc(m.defaultValue) + '" onchange="Export.setDefault(' + i + ',this.value)">' : '') +
-      '</div>';
+      const label = mapped
+        ? _esc(m.templateCol) + ' \u2192 ' + _esc(DCANT_FIELDS[m.dcantField].label)
+        : _esc(m.templateCol);
+      const cls = 'export-map-pill' + (mapped ? ' mapped' : ' unmapped') +
+        (i === _selectedMappingIdx ? ' selected' : '');
+      return '<button class="' + cls + '" onclick="Export.selectMapping(' + i + ')">' +
+        '<span class="export-map-pill-icon">' + (mapped ? '&#10003;' : '&#9888;') + '</span> ' +
+        label +
+      '</button>';
     }).join('');
   }
 
-  function changeMapping(idx, field) {
-    if (!_mappings[idx]) return;
+  function selectMapping(idx) {
+    _selectedMappingIdx = idx;
+    const m = _mappings[idx];
+    if (!m) return;
+
+    // Highlight pill
+    document.querySelectorAll('.export-map-pill').forEach((p, i) =>
+      p.classList.toggle('selected', i === idx));
+
+    // Show editor
+    const editor = g('exportMapEditor');
+    const title = g('exportMapEditorTitle');
+    const select = g('exportMapEditorSelect');
+    const defaultRow = g('exportMapEditorDefaultRow');
+    const defaultInput = g('exportMapEditorDefault');
+    if (!editor || !title || !select) return;
+
+    title.textContent = '\u00ab ' + m.templateCol + ' \u00bb';
+
+    select.innerHTML = '<option value="">(laisser vide)</option>' +
+      ALL_COLS.map(k =>
+        '<option value="' + k + '"' + (m.dcantField === k ? ' selected' : '') + '>' +
+        _esc(DCANT_FIELDS[k].label) + '</option>'
+      ).join('');
+
+    if (!m.dcantField) {
+      defaultRow.style.display = '';
+      defaultInput.value = m.defaultValue || '';
+    } else {
+      defaultRow.style.display = 'none';
+    }
+
+    editor.style.display = '';
+  }
+
+  function editorChangeMapping(field) {
+    const idx = _selectedMappingIdx;
+    if (idx < 0 || !_mappings[idx]) return;
     _mappings[idx].dcantField = field || null;
     _mappings[idx].defaultValue = '';
     _renderMappings();
+    selectMapping(idx);
   }
 
-  function setDefault(idx, val) {
-    if (!_mappings[idx]) return;
-    _mappings[idx].defaultValue = val;
+  function editorSetDefault(val) {
+    if (_selectedMappingIdx < 0 || !_mappings[_selectedMappingIdx]) return;
+    _mappings[_selectedMappingIdx].defaultValue = val;
   }
 
   // ── Download template ──
@@ -789,7 +822,7 @@ const Export = (() => {
     selectMode, selectFormat,
     toggleCol, downloadRapide,
     onDrop, onDragOver, onDragLeave, onFileChange,
-    analyzeTemplate, changeMapping, setDefault,
+    analyzeTemplate, selectMapping, editorChangeMapping, editorSetDefault,
     downloadTemplate,
     openHistory, closeHistory, deleteHistory,
     wizGo, autosize, toggleMic
