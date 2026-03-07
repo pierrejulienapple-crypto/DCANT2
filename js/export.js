@@ -315,11 +315,26 @@ const Export = (() => {
     return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
   }
 
+  // ── Types de fichiers ──
+  const _IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+  const _IMAGE_MIMES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
+
+  function _readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
   // ── Analyze template (1 appel IA) ──
   async function analyzeTemplate() {
     if (!_templateFile) { toast('Aucun fichier sélectionné.'); return; }
 
     const userDesc = (g('exportTplInput')?.value || '').trim();
+    const ext = _templateFile.name.split('.').pop().toLowerCase();
+    const isImage = _IMAGE_EXTS.includes(ext);
 
     const spinner = g('exportAnalyzeSpinner');
     const btn = g('exportAnalyzeBtn');
@@ -327,10 +342,11 @@ const Export = (() => {
     if (btn) btn.style.display = 'none';
 
     try {
-      let headersInfo = '';
+      const fieldKeys = ALL_COLS.join(', ');
+      let messages;
 
       if (_isSpreadsheet) {
-        // Spreadsheet → lire headers avec SheetJS
+        // ── Spreadsheet → lire headers avec SheetJS ──
         if (typeof XLSX === 'undefined') {
           toast('SheetJS non chargé. Rechargez la page.');
           if (spinner) spinner.style.display = 'none';
@@ -350,30 +366,50 @@ const Export = (() => {
         }
 
         _templateHeaders = rows[0].map(h => String(h).trim()).filter(Boolean);
-        headersInfo = 'COLONNES DU FICHIER (lues automatiquement) :\n' +
-          _templateHeaders.map((h, i) => (i + 1) + '. "' + h + '"').join('\n');
+        const headersList = _templateHeaders.map((h, i) => (i + 1) + '. "' + h + '"').join('\n');
+
+        messages = [{ role: 'user', content:
+          'Tu mappes des colonnes de tableur vers les champs d\'une app de gestion de vins.\n\n' +
+          'COLONNES DU FICHIER :\n' + headersList +
+          (userDesc ? '\n\nCONTEXTE DE L\'UTILISATEUR :\n' + userDesc : '') +
+          '\n\nCHAMPS DCANT DISPONIBLES : ' + fieldKeys +
+          '\n\nExemples : "Producteur"→domaine, "AOC"→appellation, "Vintage"→millesime, "Code barre"→null' +
+          '\n\nRéponds UNIQUEMENT en JSON :\n[{"templateCol":"...","dcantField":"cle_ou_null"}]'
+        }];
+
+      } else if (isImage) {
+        // ── Image (capture d'écran) → envoyer en vision ──
+        const base64 = await _readFileAsBase64(_templateFile);
+        const mediaType = _IMAGE_MIMES[ext] || 'image/png';
+
+        messages = [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text:
+            'Cette image montre un modèle d\'import ou un tableau d\'un autre logiciel.\n' +
+            'Identifie TOUTES les colonnes visibles dans le tableau ou la documentation.\n' +
+            (userDesc ? 'Contexte de l\'utilisateur : ' + userDesc + '\n' : '') +
+            '\nCHAMPS DCANT DISPONIBLES : ' + fieldKeys +
+            '\n\nExemples : "Désignation"→cuvee, "Prix unitaire HT"→pvht, "Référence"→null, "Stock"→null' +
+            '\n\nRéponds UNIQUEMENT en JSON :\n[{"templateCol":"nom_exact_colonne","dcantField":"cle_ou_null"}]'
+          }
+        ]}];
+
       } else {
-        // Non-spreadsheet (PDF, image, doc…) → description utilisateur obligatoire
+        // ── Autre format (PDF, doc…) → description obligatoire ──
         if (!userDesc) {
-          toast('Décrivez les colonnes attendues dans le champ texte.');
+          toast('Pour ce type de fichier, décrivez les colonnes dans le champ texte.');
           if (spinner) spinner.style.display = 'none';
           if (btn) btn.style.display = '';
           return;
         }
-        headersInfo = 'FICHIER : ' + _templateFile.name + ' (non-tableur, colonnes décrites par l\'utilisateur)';
+        messages = [{ role: 'user', content:
+          'L\'utilisateur a un fichier modèle (' + _templateFile.name + ') d\'un autre logiciel.\n' +
+          'Il décrit les colonnes :\n' + userDesc +
+          '\n\nCHAMPS DCANT DISPONIBLES : ' + fieldKeys +
+          '\n\nExemples : "Producteur"→domaine, "AOC"→appellation, "Vintage"→millesime, "Code barre"→null' +
+          '\n\nDéduis les colonnes depuis la description. Réponds UNIQUEMENT en JSON :\n[{"templateCol":"nom_colonne","dcantField":"cle_ou_null"}]'
+        }];
       }
-
-      // Appel IA pour le mapping
-      const fieldKeys = ALL_COLS.join(', ');
-
-      const prompt =
-        'Tu mappes des colonnes de fichier vers les champs d\'une app de gestion de vins.\n\n' +
-        headersInfo +
-        (userDesc ? '\n\nDESCRIPTION DE L\'UTILISATEUR :\n' + userDesc : '') +
-        '\n\nCHAMPS DCANT DISPONIBLES : ' + fieldKeys +
-        '\n\nExemples : "Producteur"→domaine, "AOC"→appellation, "Vintage"→millesime, "Code barre"→null' +
-        '\n\nIMPORTANT : Identifie toutes les colonnes du fichier. Si le fichier n\'est pas un tableur, déduis les colonnes depuis la description.' +
-        '\n\nRéponds UNIQUEMENT en JSON, sans texte autour :\n[{"templateCol":"nom_colonne","dcantField":"cle_ou_null"}]';
 
       const response = await fetch('/api/ai', {
         method: 'POST',
@@ -381,7 +417,7 @@ const Export = (() => {
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 1000,
-          messages: [{ role: 'user', content: prompt }]
+          messages
         })
       });
 
