@@ -15,7 +15,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-<link rel="stylesheet" href="css/app.css?v=15">
+<link rel="stylesheet" href="css/app.css?v=19">
 </head>
 <body>
 
@@ -624,13 +624,13 @@
 <script src="js/api.js?v=18"></script>
 <script src="js/calcul.js?v=15"></script>
 <script src="js/auth.js?v=15"></script>
-<script src="js/storage.js?v=15"></script>
+<script src="js/storage.js?v=19"></script>
 <script src="js/feedback.js?v=15"></script>
 <script src="js/import-upload.js?v=15"></script>
 <script src="js/import-voice.js?v=15"></script>
 <script src="js/import.js?v=15"></script>
 <script src="js/export-voice.js?v=15"></script>
-<script src="js/export.js?v=15"></script>
+<script src="js/export.js?v=19"></script>
 <script src="js/calcul_ui.js?v=15"></script>
 <script src="js/ui.js?v=15"></script>
 <script src="js/app.js?v=15"></script>
@@ -703,7 +703,20 @@
         <div class="wiz-eyebrow">Instructions</div>
         <div class="wiz-title" style="margin-bottom:4px">Décrivez votre export</div>
         <div class="wiz-subtitle" style="margin-bottom:20px">Écrivez ou dictez ce que vous souhaitez générer.</div>
+        <button class="export-hist-btn" onclick="Export.openHistory()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Historique d'exportation
+        </button>
         <div class="export-attach-status" id="exportAttachStatus" style="display:none"></div>
+      </div>
+      <div class="export-fmt-section">
+        <div class="export-fmt-label">Format de sortie</div>
+        <div class="export-fmt-bar">
+          <button class="export-fmt-pill active" data-fmt="pdf" onclick="Export.selectFormat('pdf')">PDF</button>
+          <button class="export-fmt-pill" data-fmt="image" onclick="Export.selectFormat('image')">Image</button>
+          <button class="export-fmt-pill" data-fmt="csv" onclick="Export.selectFormat('csv')">CSV</button>
+          <button class="export-fmt-pill" data-fmt="excel" onclick="Export.selectFormat('excel')">Excel</button>
+        </div>
       </div>
       <div class="wiz-chat-bar">
         <div class="wiz-chat-input-wrap">
@@ -746,13 +759,6 @@
         <div class="wiz-confirm-bubble" id="exportConfirmBubble" style="display:none">
           <div class="wiz-confirm-title">L'export contiendra :</div>
           <div class="wiz-confirm-rules" id="exportConfirmRules"></div>
-        </div>
-
-        <div class="export-fmt-bar">
-          <button class="export-fmt-pill active" data-fmt="pdf" onclick="Export.selectFormat('pdf')">PDF</button>
-          <button class="export-fmt-pill" data-fmt="image" onclick="Export.selectFormat('image')">Image</button>
-          <button class="export-fmt-pill" data-fmt="csv" onclick="Export.selectFormat('csv')">CSV</button>
-          <button class="export-fmt-pill" data-fmt="excel" onclick="Export.selectFormat('excel')">Excel</button>
         </div>
       </div>
       <div class="wiz-card-foot">
@@ -797,12 +803,38 @@
           <div class="export-preview" id="exportPreviewContainer"></div>
         </div>
       </div>
+      <div class="export-refine-bar">
+        <div class="wiz-chat-input-wrap">
+          <textarea id="exportRefineInput" class="wiz-chat-input" placeholder="Modifier le rendu : titre en gras, ajouter une colonne..." rows="1" oninput="Export.chatAutosize(this)"></textarea>
+        </div>
+        <button class="wiz-chat-send" id="exportRefineBtn" onclick="Export.sendRefinement()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+        <div class="import-instr-spinner" id="exportRefineSpinner" style="display:none">
+          <div class="import-spin"></div>
+        </div>
+      </div>
       <div class="wiz-card-foot">
         <button class="wiz-btn-back" onclick="Export.editInstruction()">&#9998; Modifier</button>
         <button class="wiz-btn-next wiz-btn-green" onclick="Export.download()">Télécharger &#8594;</button>
       </div>
     </div>
 
+  </div>
+
+  <!-- Modal historique d'exportation -->
+  <div class="export-hist-overlay" id="exportHistOverlay" style="display:none" onclick="if(event.target===this)Export.closeHistory()">
+    <div class="export-hist-modal">
+      <div class="export-hist-hd">
+        <h3>Historique d'exportation</h3>
+        <button class="export-hist-close" onclick="Export.closeHistory()">&#10005;</button>
+      </div>
+      <div class="export-hist-body" id="exportHistBody">
+        <div class="export-hist-empty">Aucun export sauvegardé.</div>
+      </div>
+    </div>
   </div>
 </div>
 

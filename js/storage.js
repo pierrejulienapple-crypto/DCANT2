@@ -231,10 +231,65 @@ const Storage = (() => {
     } catch (e) { return false; }
   }
 
+  // ── EXPORT HISTORY ──
+
+  async function getExportHistory(userId) {
+    try {
+      const { data, error } = await window.supabase
+        .from('export_history')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.warn('Storage.getExportHistory:', e);
+      return [];
+    }
+  }
+
+  async function saveExportHistory(userId, entry) {
+    try {
+      const { data, error } = await window.supabase
+        .from('export_history')
+        .insert([{
+          user_id: userId,
+          name: entry.name,
+          instruction: entry.instruction,
+          interpretation: entry.interpretation,
+          selected_format: entry.selected_format,
+          template_custom: entry.template_custom,
+          generated_html: entry.generated_html
+        }])
+        .select()
+        .single();
+      if (error) throw error;
+      return { ok: true, data };
+    } catch (e) {
+      console.warn('Storage.saveExportHistory:', e);
+      return { ok: false };
+    }
+  }
+
+  async function deleteExportHistory(id) {
+    try {
+      const { error } = await window.supabase
+        .from('export_history')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return { ok: true };
+    } catch (e) {
+      console.warn('Storage.deleteExportHistory:', e);
+      return { ok: false };
+    }
+  }
+
   return {
     getHistorique, saveCalcul, updateCalcul, deleteCalcul,
     getModeles, saveModele, deleteModele,
     saveFeedback, getFeedback, feedbackDoneRemote,
+    getExportHistory, saveExportHistory, deleteExportHistory,
     Local
   };
 
