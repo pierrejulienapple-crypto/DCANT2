@@ -285,11 +285,25 @@ const Storage = (() => {
     }
   }
 
+  async function deleteExportHistoryBatch(ids) {
+    try {
+      const { error } = await window.supabase
+        .from('export_history')
+        .delete()
+        .in('id', ids);
+      if (error) throw error;
+      return { ok: true };
+    } catch (e) {
+      console.warn('Storage.deleteExportHistoryBatch:', e);
+      return { ok: false };
+    }
+  }
+
   return {
     getHistorique, saveCalcul, updateCalcul, deleteCalcul,
     getModeles, saveModele, deleteModele,
     saveFeedback, getFeedback, feedbackDoneRemote,
-    getExportHistory, saveExportHistory, deleteExportHistory,
+    getExportHistory, saveExportHistory, deleteExportHistory, deleteExportHistoryBatch,
     Local
   };
 

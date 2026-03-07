@@ -2345,6 +2345,86 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   display: flex; gap: 8px;
 }
 
+/* ── Export: default value popup ── */
+.export-default-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.export-default-popup {
+  background: var(--white);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 340px;
+  width: 90%;
+  box-shadow: 0 8px 30px rgba(0,0,0,.2);
+}
+.export-default-popup-title {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+.export-default-popup-sub {
+  font-size: 13px;
+  color: var(--dimmer);
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+/* ── Export: history checkboxes ── */
+.export-hist-item-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.export-hist-check {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.export-hist-info {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+.export-hist-item.clickable:hover .export-hist-info {
+  opacity: .8;
+}
+.export-hist-use-btn {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.export-hist-use-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+.export-hist-delete-batch {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid #c0392b;
+  color: #c0392b;
+  background: none;
+  cursor: pointer;
+}
+.export-hist-delete-batch:hover {
+  background: #c0392b;
+  color: #fff;
+}
+
 /* ── BOTTOM SHEET MOBILE (édition cellule) ── */
 .bs-overlay {
   position: fixed;

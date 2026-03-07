@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&family=Caveat:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-<link rel="stylesheet" href="css/app.css?v=28">
+<link rel="stylesheet" href="css/app.css?v=29">
 </head>
 <body>
 
@@ -623,12 +623,12 @@
 <script src="js/api.js?v=18"></script>
 <script src="js/calcul.js?v=15"></script>
 <script src="js/auth.js?v=15"></script>
-<script src="js/storage.js?v=19"></script>
+<script src="js/storage.js?v=20"></script>
 <script src="js/feedback.js?v=15"></script>
 <script src="js/import-upload.js?v=15"></script>
 <script src="js/import-voice.js?v=16"></script>
-<script src="js/import.js?v=16"></script>
-<script src="js/export.js?v=28"></script>
+<script src="js/import.js?v=17"></script>
+<script src="js/export.js?v=29"></script>
 <script src="js/calcul_ui.js?v=15"></script>
 <script src="js/ui.js?v=15"></script>
 <script src="js/app.js?v=15"></script>
@@ -706,6 +706,11 @@
             </div>
           </div>
 
+          <div class="export-filename-section" style="margin-top:12px">
+            <label class="export-fmt-label">NOM DU FICHIER</label>
+            <input type="text" class="export-map-input" id="exportFileNameRapide" placeholder="dcant_export">
+          </div>
+
           <div style="display:flex;gap:8px;justify-content:space-between;padding-top:16px">
             <button class="wiz-btn-back" onclick="Export.wizGo(1)">&#8592;</button>
             <button class="wiz-btn-next wiz-btn-green" onclick="Export.downloadRapide()">T&eacute;l&eacute;charger &#8594;</button>
@@ -721,11 +726,12 @@
 
             <div class="import-dropzone" id="exportDropzone"
                  ondrop="Export.onDrop(event)" ondragover="Export.onDragOver(event)"
-                 ondragleave="Export.onDragLeave(event)">
+                 ondragleave="Export.onDragLeave(event)"
+                 onclick="Export.clickDropzone()">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               <span class="import-dropzone-text">Glissez votre fichier ici</span>
               <span class="import-dropzone-or">ou</span>
-              <label class="import-dropzone-browse">
+              <label class="import-dropzone-browse" onclick="event.stopPropagation()">
                 Parcourir
                 <input type="file" hidden onchange="Export.onFileChange(event)">
               </label>
@@ -793,6 +799,10 @@
           </div>
         </div>
       </div>
+      <div class="export-filename-section" style="padding:0 20px 8px">
+        <label class="export-fmt-label">NOM DU FICHIER</label>
+        <input type="text" class="export-map-input" id="exportFileNameTemplate" placeholder="dcant_export">
+      </div>
       <div class="wiz-card-foot">
         <button class="wiz-btn-back" onclick="Export.wizGo(2)">&#8592; Modifier</button>
         <button class="wiz-btn-next wiz-btn-green" onclick="Export.downloadTemplate()">Exporter &#8594;</button>
@@ -806,6 +816,7 @@
     <div class="export-hist-modal">
       <div class="export-hist-hd">
         <h3>Historique d'exportation</h3>
+        <button class="export-hist-delete-batch" id="exportHistDeleteBatch" style="display:none" onclick="Export.deleteSelectedHistory()">Supprimer (0)</button>
         <button class="export-hist-close" onclick="Export.closeHistory()">&#10005;</button>
       </div>
       <div class="export-hist-body" id="exportHistBody">
