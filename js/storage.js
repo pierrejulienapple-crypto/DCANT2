@@ -8,18 +8,19 @@ const Storage = (() => {
 
   // ── HISTORIQUE (table: calculs) ──
 
-  async function getHistorique(userId) {
+  async function getHistorique(userId, offset = 0, limit = 50) {
     try {
       const { data, error } = await window.supabase
         .from('calculs')
         .select('*')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
       if (error) throw error;
-      return data || [];
+      return { data: data || [], hasMore: (data || []).length === limit };
     } catch (e) {
       console.warn('Storage.getHistorique:', e);
-      return [];
+      return { data: [], hasMore: false };
     }
   }
 

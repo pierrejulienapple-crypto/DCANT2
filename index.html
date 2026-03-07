@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="css/app.css?v=13">
+<link rel="stylesheet" href="css/app.css?v=14">
 </head>
 <body>
 
@@ -161,6 +161,7 @@
       <div class="res-row"><span class="res-label">Taux de marge</span><span class="res-value" id="res-pct">—</span></div>
       <div class="res-row"><span class="res-label">Coefficient</span><span class="res-value" id="res-coeff">—</span></div>
     </div>
+    <div id="fbInline"></div>
     <div class="actions">
       <button class="btn solid" id="saveBtn" onclick="Calcul_UI.saveCalc()" style="display:none">Sauvegarder</button>
       <button class="btn btn-secondary" onclick="UI.openCreateModel()">★ Enregistrer comme modèle</button>
@@ -214,7 +215,7 @@
   <div class="confirm-box">
     <p id="confirmMsg">Confirmer ?</p>
     <div class="confirm-foot">
-      <button class="btn solid sm" onclick="confirmDo()">Supprimer</button>
+      <button class="btn solid sm" id="confirmBtn" onclick="confirmDo()">Supprimer</button>
       <button class="btn sm" onclick="confirmCancel()">Annuler</button>
     </div>
   </div>
@@ -593,32 +594,6 @@
   </div>
 </div>
 
-<!-- BOTTOM SHEET FEEDBACK -->
-<div class="sheet-bg" id="sheetBg" onclick="Feedback.close()"></div>
-<div class="sheet" id="sheet">
-  <div class="sheet-handle"></div>
-  <div class="sheet-header">
-    <div class="sheet-counter" id="sheetCounter">1 / 3</div>
-    <button class="sheet-already" id="sheetAlready" onclick="Feedback.alreadyAnswered()">J'ai déjà répondu</button>
-  </div>
-  <div class="sheet-q" id="sheetQ"></div>
-  <div class="sheet-opts" id="sheetOpts"></div>
-  <textarea class="sheet-comment" id="sheetComment" placeholder="Un commentaire ? (optionnel)"></textarea>
-  <div class="sheet-foot">
-    <button class="btn solid sm" onclick="Feedback.submit()">Envoyer</button>
-    <button class="sheet-skip" onclick="Feedback.close()">Passer</button>
-  </div>
-  <div class="sheet-sent" id="sheetSent">✓ Merci pour votre retour !</div>
-  <div class="sheet-already-msg" id="sheetAlreadyMsg" style="display:none">
-    <div class="sheet-already-icon">🙏</div>
-    <div class="sheet-already-title">Merci si vous avez déjà répondu !</div>
-    <div class="sheet-already-text">Ce questionnaire compte <strong>5 questions</strong> et prend moins d'une minute. Il nous aide vraiment à construire un outil qui correspond à vos besoins réels.<br><br>Si vous changez d'appareil, vos réponses précédentes ne sont pas reconnues — c'est normal. Dans ce cas, quelques secondes de plus nous seraient précieuses. Chaque retour compte vraiment.</div>
-    <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
-      <button class="btn solid sm" onclick="Feedback.showForm()">Répondre quand même</button>
-      <button class="btn ghost sm" onclick="Feedback.close()">Fermer</button>
-    </div>
-  </div>
-</div>
 
 <!-- PWA INSTALL BANNER -->
 <div class="pwa-banner hidden" id="pwaBanner">
@@ -641,19 +616,19 @@
 <div class="toast" id="toast"></div>
 
 <!-- Scripts — ordre important -->
-<script src="js/config.js?v=13"></script>
-<script src="js/state.js?v=13"></script>
-<script src="js/api.js?v=13"></script>
-<script src="js/calcul.js?v=13"></script>
-<script src="js/auth.js?v=13"></script>
-<script src="js/storage.js?v=13"></script>
-<script src="js/feedback.js?v=13"></script>
-<script src="js/import-upload.js?v=13"></script>
-<script src="js/import-voice.js?v=13"></script>
-<script src="js/import.js?v=13"></script>
-<script src="js/calcul_ui.js?v=13"></script>
-<script src="js/ui.js?v=13"></script>
-<script src="js/app.js?v=13"></script>
+<script src="js/config.js?v=14"></script>
+<script src="js/state.js?v=14"></script>
+<script src="js/api.js?v=14"></script>
+<script src="js/calcul.js?v=14"></script>
+<script src="js/auth.js?v=14"></script>
+<script src="js/storage.js?v=14"></script>
+<script src="js/feedback.js?v=14"></script>
+<script src="js/import-upload.js?v=14"></script>
+<script src="js/import-voice.js?v=14"></script>
+<script src="js/import.js?v=14"></script>
+<script src="js/calcul_ui.js?v=14"></script>
+<script src="js/ui.js?v=14"></script>
+<script src="js/app.js?v=14"></script>
 
 <!-- MODALE EXPORT — 2 grands boutons plein écran -->
 <div class="export-overlay" id="exportOverlay" style="display:none">

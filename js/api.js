@@ -59,7 +59,7 @@ Max 100 cuvées. Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin d
 
   const response = await fetch('/api/ai', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders(),
     body: JSON.stringify({
       model: 'claude-opus-4-5',
       max_tokens: 8000,

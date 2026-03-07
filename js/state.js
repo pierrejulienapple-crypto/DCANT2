@@ -41,9 +41,10 @@ function toast(msg, dur) {
   setTimeout(() => e.classList.remove('show'), dur || 2800);
 }
 
-function askConfirm(msg, cb) {
+function askConfirm(msg, cb, btnLabel) {
   s('confirmMsg', msg);
   App.ui.confirmCallback = cb;
+  g('confirmBtn').textContent = btnLabel || 'Supprimer';
   g('confirmOverlay').classList.add('open');
 }
 function confirmDo() {
@@ -59,6 +60,17 @@ function confirmCancel() {
 function acceptCookies() {
   Storage.Local.acceptCookies();
   g('cookieBar').classList.add('hidden');
+}
+
+async function authHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  try {
+    const { data } = await window.supabase.auth.getSession();
+    if (data?.session?.access_token) {
+      h['Authorization'] = 'Bearer ' + data.session.access_token;
+    }
+  } catch (e) {}
+  return h;
 }
 
 function track(event, data) {

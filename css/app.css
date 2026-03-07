@@ -630,41 +630,17 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 .edit-prev { font-size: 13px; color: var(--dim); padding: 12px 0; border-top: 1px solid var(--border); line-height: 1.8; }
 
 /* ── FEEDBACK SHEET ── */
-.sheet-bg { display: none; position: fixed; inset: 0; background: rgba(28,25,23,.4); z-index: 400; }
-.sheet-bg.open { display: block; }
-.sheet-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.sheet-counter { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--dimmer); }
-.sheet-already { font-family: var(--font); font-size: 11px; letter-spacing: .05em; color: var(--dimmer); background: none; border: none; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; padding: 0; }
-.sheet-already:hover { color: var(--dim); }
-.sheet-already-msg { text-align: center; padding: 8px 0 4px; }
-.sheet-already-icon { font-size: 28px; margin-bottom: 10px; }
-.sheet-already-title { font-family: var(--font-display); font-style: italic; font-size: 16px; color: var(--text); margin-bottom: 10px; }
-.sheet-already-text { font-size: 13px; color: var(--dim); line-height: 1.7; }
-.sheet {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  background: var(--white);
-  border-top: 1px solid var(--border);
-  z-index: 401;
-  padding: 20px 24px 40px;
-  transform: translateY(110%);
-  visibility: hidden;
-  transition: transform .3s cubic-bezier(.32,0,.67,0), visibility .3s;
-  max-width: 520px;
-  margin: 0 auto;
-}
-.sheet.open { transform: translateY(0); visibility: visible; transition: transform .35s cubic-bezier(.34,1.56,.64,1), visibility 0s; }
-.sheet-handle { width: 36px; height: 3px; background: var(--border); margin: 0 auto 20px; }
-.sheet-q { font-family: var(--font-display); font-size: 16px; font-weight: 300; font-style: italic; color: var(--text); margin-bottom: 18px; line-height: 1.5; }
-.sheet-opts { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
-.sheet-opt { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--dim); cursor: pointer; padding: 10px 14px; border: 1px solid var(--border); transition: border-color .15s; }
-.sheet-opt:hover { border-color: var(--text); color: var(--text); }
-.sheet-opt input { width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--text); }
-.sheet-comment { margin-bottom: 14px; height: 56px !important; font-size: 14px; }
-.sheet-foot { display: flex; align-items: center; gap: 16px; }
-.sheet-skip { font-family: var(--font); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--dimmer); background: none; border: none; cursor: pointer; }
-.sheet-skip:hover { color: var(--text); }
-.sheet-sent { display: none; font-family: var(--font-display); font-style: italic; font-size: 16px; color: var(--text); text-align: center; padding: 16px; }
+/* ── FEEDBACK INLINE ── */
+.fb-inline { padding: 16px; border-radius: 12px; background: #f8f7f5; margin: 12px 0; text-align: center; animation: fb-fadeIn .3s ease; }
+.fb-banner { padding: 14px 16px; border-radius: 10px; background: #f8f7f5; border-left: 3px solid var(--accent, #7c3aed); margin-bottom: 16px; text-align: center; animation: fb-fadeIn .3s ease; }
+.fb-q { font-family: var(--font-display); font-size: 15px; font-weight: 300; font-style: italic; color: var(--text); margin-bottom: 12px; line-height: 1.4; }
+.fb-opts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.fb-opt { font-family: var(--font); font-size: 13px; color: var(--dim); background: var(--white, #fff); border: 1px solid var(--border); border-radius: 20px; padding: 6px 16px; cursor: pointer; transition: all .15s; }
+.fb-opt:hover { border-color: var(--text); color: var(--text); }
+.fb-opt.selected { background: var(--text); color: var(--white, #fff); border-color: var(--text); }
+.fb-other { display: block; width: 100%; margin-top: 10px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-family: var(--font); font-size: 13px; }
+.fb-done { font-family: var(--font-display); font-style: italic; font-size: 15px; color: var(--dim); padding: 8px 0; }
+@keyframes fb-fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ── ZONE INSTRUCTIONS VOCALES ── */
 .import-instr-wrap {

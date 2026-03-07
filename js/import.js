@@ -883,7 +883,10 @@ const Import = (() => {
 
     // Ferme le modal et va sur l'historique
     close();
-    setTimeout(() => UI.showPage('historique'), 300);
+    setTimeout(() => {
+      UI.showPage('historique');
+      setTimeout(() => Feedback.showBanner(6, 'historyContent'), 1500);
+    }, 300);
   }
 
   async function _mergeDuplicateDomains(userEmail) {
@@ -1113,7 +1116,7 @@ Instructions : "${text}"`;
 
       const response = await fetch('/api/ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeaders(),
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 600,
@@ -1266,7 +1269,7 @@ Instructions : "${text}"`;
 
       const response = await fetch('/api/ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeaders(),
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 500,

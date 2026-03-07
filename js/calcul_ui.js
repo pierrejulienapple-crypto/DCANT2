@@ -129,7 +129,7 @@ const Calcul_UI = (() => {
     if (pa > 0 && mv > 0 && !Storage.Local.feedbackDone(1)) {
       if (App.calc.sheetTimer) clearTimeout(App.calc.sheetTimer);
       App.calc.sheetTimer = setTimeout(() => {
-        if (!Storage.Local.feedbackDone(1)) Feedback.open(1);
+        if (!Storage.Local.feedbackDone(1)) Feedback.showInline(1, 'fbInline');
       }, 3000);
     }
   }

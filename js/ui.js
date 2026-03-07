@@ -20,7 +20,7 @@ const UI = (() => {
     if (name === 'historique') {
       renderHistorique();
       if (!Storage.Local.feedbackDone(4) && App.user) {
-        setTimeout(() => Feedback.open(4), 5000);
+        setTimeout(() => Feedback.showBanner(4, 'historyContent'), 2000);
       }
     }
   }
@@ -120,7 +120,7 @@ const UI = (() => {
         App.historique = [];
         App.modeles = [];
         toast('Déconnecté');
-      });
+      }, 'Se déconnecter');
     } else {
       openAuth('login');
     }
@@ -235,14 +235,17 @@ const UI = (() => {
 
   // ── HISTORIQUE ──
 
-  async function renderHistorique() {
+  let _histHasMore = false;
+
+  async function renderHistorique(append) {
     const el = g('historyContent');
     const ci = g('histCount');
     const filters = g('histFilters');
 
-    // Reset sélection à chaque rendu
-    App.selectedIds.clear();
-    _updateDeleteBtn();
+    if (!append) {
+      App.selectedIds.clear();
+      _updateDeleteBtn();
+    }
 
     if (!App.user) {
       ci.textContent = '';
@@ -252,8 +255,23 @@ const UI = (() => {
       return;
     }
 
-    el.innerHTML = '<div class="empty">Chargement…</div>';
-    App.historique = await Storage.getHistorique(App.user.id);
+    if (!append) {
+      el.innerHTML = '<div class="empty">Chargement…</div>';
+      App.historique = [];
+    }
+
+    const offset = App.historique.length;
+    const { data, hasMore } = await Storage.getHistorique(App.user.id, offset, 50);
+    _histHasMore = hasMore;
+    App.historique = App.historique.concat(data);
+
+    _renderHistList();
+  }
+
+  function _renderHistList() {
+    const el = g('historyContent');
+    const ci = g('histCount');
+    const filters = g('histFilters');
 
     const fD = (g('fD').value || '').toLowerCase();
     const fC = (g('fC').value || '').toLowerCase();
@@ -284,7 +302,7 @@ const UI = (() => {
       arr.sort((a, b) => (parseInt(b.millesime) || 0) - (parseInt(a.millesime) || 0))
     );
 
-    el.innerHTML = '<div class="domain-cards">' +
+    let html = '<div class="domain-cards">' +
       Object.entries(grouped).map(([domain, entries]) => {
         const latest = entries[0];
         return `<div class="domain-card">
@@ -324,12 +342,22 @@ const UI = (() => {
         </div>`;
       }).join('') + '</div>';
 
+    if (_histHasMore) {
+      html += '<div style="text-align:center;margin:16px 0"><button class="btn ghost sm" onclick="UI.loadMoreHist()">Charger plus…</button></div>';
+    }
+
+    el.innerHTML = html;
+
     // Nettoie les IDs orphelins (supprimés ou filtrés) et met à jour le bouton
     const currentIds = new Set(App.historique.map(e => e.id));
     for (const id of App.selectedIds) {
       if (!currentIds.has(id)) App.selectedIds.delete(id);
     }
     _updateDeleteBtn();
+  }
+
+  function loadMoreHist() {
+    renderHistorique(true);
   }
 
   function toggleSel(id, checked) {
@@ -722,7 +750,7 @@ const UI = (() => {
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
     toast(rows.length + ' cuvée(s) exportée(s)');
     track('export_csv', { nb: rows.length, type });
-    setTimeout(() => Feedback.open(5), 700);
+    setTimeout(() => Feedback.showBanner(5, 'historyContent'), 700);
   }
 
   // ── ADMIN ──
@@ -834,7 +862,7 @@ const UI = (() => {
         });
         const resp = await fetch('/api/ai', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await authHeaders(),
           body: JSON.stringify({
             model: 'claude-haiku-4-5-20251001',
             max_tokens: 600,
@@ -879,7 +907,7 @@ const UI = (() => {
     try {
       const resp = await fetch('/api/ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authHeaders(),
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 2000,
@@ -917,7 +945,7 @@ Retourne UNIQUEMENT le CSV, avec ligne d'en-tête, rien d'autre.`
     toggleAuthMode, checkEmail, backToEmail, submitAuth, handleAuthBtn,
     updateModelDrop, toggleModelDrop, closeModelDrop,
     applyModel, deleteModel, openCreateModel, closeModelBg, saveModel,
-    renderHistorique, toggleSel, selDomAll, toggleDom, resetFilters, toggleReset,
+    renderHistorique, loadMoreHist, toggleSel, selDomAll, toggleDom, resetFilters, toggleReset,
     deleteSelected,
     toggleEntry, toggleInstrEdit, liveRecompute, saveInstrEdit,
     openDetail, closeDetail, closeDetailBg, askDeleteEntry, toggleEdit, saveEdit,
