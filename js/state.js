@@ -62,6 +62,17 @@ function acceptCookies() {
   g('cookieBar').classList.add('hidden');
 }
 
+async function authHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  try {
+    const { data } = await window.supabase.auth.getSession();
+    if (data?.session?.access_token) {
+      h['Authorization'] = 'Bearer ' + data.session.access_token;
+    }
+  } catch (e) {}
+  return h;
+}
+
 function track(event, data) {
   try {
     if (window.clarity) window.clarity('event', event);

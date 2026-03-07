@@ -157,10 +157,9 @@ const Feedback = (() => {
   }
 
   async function _showNext(n, container, isBanner) {
-    // Vérifie si déjà répondu
     if (Storage.Local.feedbackDone(n)) { container.innerHTML = ''; return; }
-    if (n > 1) {
-      const uid = App.user ? App.user.id : null;
+    const uid = App.user ? App.user.id : null;
+    if (uid) {
       const done = await Storage.feedbackDoneRemote(n, uid);
       if (done) { container.innerHTML = ''; return; }
     }
@@ -170,14 +169,11 @@ const Feedback = (() => {
   // ── API publique ──
 
   async function showInline(n, containerId) {
-    // Q1 : localStorage uniquement
-    if (n === 1) {
-      if (Storage.Local.feedbackDone(1)) return;
-    } else {
-      const uid = App.user ? App.user.id : null;
+    if (Storage.Local.feedbackDone(n)) return;
+    const uid = App.user ? App.user.id : null;
+    if (uid) {
       const done = await Storage.feedbackDoneRemote(n, uid);
       if (done) return;
-      if (Storage.Local.feedbackDone(n)) return;
     }
 
     const container = g(containerId);

@@ -74,7 +74,7 @@ const ImportVoice = (() => {
               toast('Transcription en cours…');
               const resp = await fetch('/api/whisper', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await authHeaders(),
                 body: JSON.stringify({ audio: base64, mime })
               });
               const data = await resp.json();
