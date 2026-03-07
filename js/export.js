@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════
-// DCANT — Module Export IA
-// Wizard plein écran : instruction → IA → aperçu → téléchargement
+// DCANT — Module Export IA v3
+// Wizard guidé : type → config/questionnaire → récap → aperçu
 // ═══════════════════════════════════════════
 
 const Export = (() => {
@@ -9,9 +9,6 @@ const Export = (() => {
   let _wizCur = 1;
   let _exportType = 'all';
   let _exportRows = [];
-  let _instruction = '';
-  let _attachedFile = null;
-  let _interpretation = null;
   let _selectedFormat = 'pdf';
   let _generatedHTML = '';
   let _templateCustom = {
@@ -20,10 +17,88 @@ const Export = (() => {
     accentColor: '#1a2744',
     fontPair: 'classic'
   };
-  let _wizExInterval = null;
   let _scrollY = 0;
   let _exportName = '';
   let _exportHistory = [];
+
+  // ── Config structurée (remplace _instruction + _interpretation) ──
+  let _config = {
+    type: '',        // carte | tarif | inventaire | custom
+    audience: '',
+    mise_en_page: '',
+    colonnes: [],
+    tri: '',
+    groupement: '',
+    notes: ''        // instructions custom additionnelles
+  };
+  let _chatStep = 0;
+
+  // ── Defaults par type ──
+  const _TYPE_DEFAULTS = {
+    carte: {
+      audience: 'Clients restaurant',
+      mise_en_page: 'carte des vins',
+      colonnes: ['domaine', 'cuvee', 'appellation', 'millesime', 'pvttc'],
+      tri: 'appellation',
+      groupement: 'appellation'
+    },
+    tarif: {
+      audience: 'Professionnels',
+      mise_en_page: 'tarif prix',
+      colonnes: ['domaine', 'cuvee', 'appellation', 'millesime', 'pvht'],
+      tri: 'domaine',
+      groupement: 'aucun'
+    },
+    inventaire: {
+      audience: 'Usage interne',
+      mise_en_page: 'inventaire complet',
+      colonnes: ['domaine', 'cuvee', 'appellation', 'millesime', 'prix_achat', 'pvht', 'pvttc', 'marge_euros', 'marge_pct', 'coeff', 'commentaire'],
+      tri: 'domaine',
+      groupement: 'aucun'
+    }
+  };
+
+  // ── Questions du questionnaire personnalisé ──
+  const _QUESTIONS = [
+    {
+      text: 'Pour qui est ce document ?',
+      key: 'audience',
+      options: ['Clients restaurant', 'Professionnels', 'Usage interne']
+    },
+    {
+      text: 'Quel style de mise en page ?',
+      key: 'mise_en_page',
+      options: ['Carte des vins élégante', 'Tableau structuré', 'Visuel graphique']
+    },
+    {
+      text: 'Quelles informations afficher ?',
+      key: 'colonnes',
+      multi: true,
+      options: ['domaine', 'cuvee', 'appellation', 'millesime', 'pvht', 'pvttc', 'marge_euros', 'coeff', 'commentaire'],
+      labels: { domaine: 'Domaine', cuvee: 'Cuvée', appellation: 'Appellation', millesime: 'Millésime', pvht: 'Prix HT', pvttc: 'Prix TTC', marge_euros: 'Marge', coeff: 'Coeff', commentaire: 'Commentaire' },
+      defaults: ['domaine', 'cuvee', 'appellation', 'millesime', 'pvttc']
+    },
+    {
+      text: 'Comment organiser les vins ?',
+      key: 'tri',
+      options: ['Par appellation', 'Par domaine', 'Par prix']
+    }
+  ];
+
+  // ── Template opts par type ──
+  const _TEMPLATE_OPTS = {
+    carte: [
+      { label: 'Trier par', key: 'tri', options: ['appellation', 'domaine', 'prix'] },
+      { label: 'Grouper', key: 'groupement', options: ['appellation', 'domaine', 'aucun'], labels: { appellation: 'Par appellation', domaine: 'Par domaine', aucun: 'Non' } }
+    ],
+    tarif: [
+      { label: 'Prix affiché', key: '_prix_mode', options: ['ht', 'ttc', 'ht_ttc'], labels: { ht: 'HT seul', ttc: 'TTC seul', ht_ttc: 'HT + TTC' } },
+      { label: 'Afficher marge', key: '_show_marge', options: ['non', 'oui'], labels: { non: 'Non', oui: 'Oui (€ + %)' } }
+    ],
+    inventaire: [
+      { label: 'Trier par', key: 'tri', options: ['domaine', 'prix_achat', 'marge_pct'], labels: { domaine: 'Domaine', prix_achat: 'Prix d\'achat', marge_pct: 'Marge' } }
+    ]
+  };
 
   const _FONT_PAIRS = {
     classic:  { display: "'Fraunces', serif",           body: "'DM Sans', sans-serif",  label: 'Classique' },
@@ -69,34 +144,28 @@ const Export = (() => {
     g('exportOverlay').classList.remove('open');
     _unlockScroll();
     ExportVoice.stop();
-    clearInterval(_wizExInterval);
   }
 
   function _reset() {
     _wizCur = 1;
-    _instruction = '';
-    _attachedFile = null;
-    _interpretation = null;
+    _config = { type: '', audience: '', mise_en_page: '', colonnes: [], tri: '', groupement: '', notes: '' };
+    _chatStep = 0;
     _selectedFormat = 'pdf';
     _generatedHTML = '';
     _templateCustom = { bgColor: '#ffffff', textColor: '#1a1a1a', accentColor: '#1a2744', fontPair: 'classic' };
-    clearInterval(_wizExInterval);
+    _exportName = '';
+
     document.querySelectorAll('#exportCardsWrap .wiz-card').forEach(c =>
       c.classList.remove('active', 'exit-left'));
     const c1 = g('exportCard1');
     if (c1) c1.classList.add('active');
     _wizUpdateProgress(1);
-    const ta = g('exportInstrInput');
-    if (ta) ta.value = '';
-    const cb = g('exportConfirmBubble');
-    if (cb) cb.style.display = 'none';
-    const as = g('exportAttachStatus');
-    if (as) as.style.display = 'none';
+
     const pc = g('exportPreviewContainer');
     if (pc) pc.innerHTML = '';
     const ri = g('exportRefineInput');
     if (ri) ri.value = '';
-    _exportName = '';
+
     // Reset color pickers
     const cpBg = g('exportColorBg');
     const cpTxt = g('exportColorText');
@@ -113,23 +182,14 @@ const Export = (() => {
   }
 
   // ── WIZARD NAVIGATION ──
-  const _WIZ_STEPS = [1, 'tuto', 3, 4, 5];
-  const _CARD_IDS = {
-    1: 'exportCard1',
-    'tuto': 'exportCardTuto',
-    3: 'exportCard3',
-    4: 'exportCard4',
-    5: 'exportCard5'
-  };
+  const _CARD_IDS = { 1: 'exportCard1', 2: 'exportCard2', 3: 'exportCard3', 4: 'exportCard4' };
 
   function wizGo(n) {
     const prevCard = document.querySelector('#exportCardsWrap .wiz-card.active');
     const nextCard = g(_CARD_IDS[n]);
     if (!nextCard || prevCard === nextCard) return;
 
-    const pi = _WIZ_STEPS.indexOf(_wizCur);
-    const ni = _WIZ_STEPS.indexOf(n);
-    const fwd = ni >= pi;
+    const fwd = n > _wizCur;
 
     document.querySelectorAll('#exportCardsWrap .wiz-card.exit-left')
       .forEach(c => c.classList.remove('exit-left'));
@@ -138,10 +198,6 @@ const Export = (() => {
     if (prevCard) prevCard.classList.remove('active');
     nextCard.classList.add('active');
 
-    if (n === 'tuto') _startTutoCarousel();
-    else if (n === 3) _startPlaceholderRotation();
-    else clearInterval(_wizExInterval);
-
     setTimeout(() => {
       document.querySelectorAll('#exportCardsWrap .wiz-card.exit-left')
         .forEach(c => c.classList.remove('exit-left'));
@@ -149,213 +205,301 @@ const Export = (() => {
 
     _wizCur = n;
     _wizUpdateProgress(n);
+
+    // Quand on arrive sur Card 3, render le récap
+    if (n === 3) _renderRecap();
+
     setTimeout(() => nextCard.scrollTop = 0, 10);
   }
 
   function _wizUpdateProgress(n) {
-    const pcts = { 1: 20, 'tuto': 20, 3: 40, 4: 70, 5: 100 };
+    const pcts = { 1: 25, 2: 50, 3: 75, 4: 100 };
     const el = g('exportProgFill');
-    if (el) el.style.width = (pcts[n] || 20) + '%';
+    if (el) el.style.width = (pcts[n] || 25) + '%';
 
-    const dotMap = { 1: 1, 'tuto': 1, 3: 2, 4: 3, 5: 4 };
-    const active = dotMap[n] || 1;
     for (let i = 1; i <= 4; i++) {
       const d = g('ewd' + i);
       if (!d) continue;
-      d.className = 'wiz-dot' + (i < active ? ' done' : i === active ? ' on' : '');
+      d.className = 'wiz-dot' + (i < n ? ' done' : i === n ? ' on' : '');
     }
-    const lbls = { 1: 'Mode', 'tuto': 'Mode', 3: 'Instructions', 4: 'Interprétation', 5: 'Aperçu' };
+    const lbls = { 1: 'Type', 2: 'Configuration', 3: 'Récap', 4: 'Aperçu' };
     const txt = g('exportStepTxt');
     if (txt) txt.textContent = lbls[n] || '';
   }
 
-  // ── ÉTAPE 1 : Choix du mode ──
+  // ── CARD 1 : Choix du type ──
   function exportDirect() {
     close();
     UI.exportCSV(_exportType);
   }
 
-  function startAI() {
-    const tutoSeen = localStorage.getItem('dcant_export_tuto_seen');
-    if (!tutoSeen) {
-      wizGo('tuto');
+  function selectType(type) {
+    _config.type = type;
+
+    if (type !== 'custom') {
+      // Appliquer les defaults
+      const defs = _TYPE_DEFAULTS[type];
+      Object.assign(_config, { ...defs });
+      _showTemplateOpts(type);
     } else {
-      wizGo(3);
+      // Mode personnalisé : questionnaire
+      _config.audience = '';
+      _config.mise_en_page = '';
+      _config.colonnes = [];
+      _config.tri = '';
+      _config.groupement = 'aucun';
+      _config.notes = '';
+      _startQuestionnaire();
+    }
+
+    wizGo(2);
+  }
+
+  // ── CARD 2 : Template options ──
+  function _showTemplateOpts(type) {
+    const tpl = g('exportOptsTemplate');
+    const cst = g('exportOptsCustom');
+    if (tpl) tpl.style.display = '';
+    if (cst) cst.style.display = 'none';
+
+    const title = g('exportCard2Title');
+    const sub = g('exportCard2Sub');
+    const typeLabels = { carte: 'Carte des vins', tarif: 'Tarif professionnel', inventaire: 'Inventaire' };
+    if (title) title.textContent = typeLabels[type] || 'Options';
+    if (sub) sub.textContent = 'Ajustez les réglages de votre export.';
+
+    const group = g('exportOptGroup');
+    if (!group) return;
+
+    const opts = _TEMPLATE_OPTS[type] || [];
+    group.innerHTML = opts.map(opt => {
+      const lbls = opt.labels || {};
+      return '<div class="export-opt-row">' +
+        '<div class="export-opt-label">' + _esc(opt.label) + '</div>' +
+        '<div class="export-opt-pills" data-key="' + opt.key + '">' +
+          opt.options.map(v => {
+            const isDefault = (_config[opt.key] === v) ||
+              (opt.key === '_prix_mode' && v === 'ht') ||
+              (opt.key === '_show_marge' && v === 'non');
+            return '<button class="export-opt-pill' + (isDefault ? ' active' : '') + '" data-val="' + v + '" onclick="Export.selectOpt(\'' + opt.key + '\',\'' + v + '\')">' +
+              _esc(lbls[v] || v) + '</button>';
+          }).join('') +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function selectOpt(key, val) {
+    // Mettre à jour l'UI
+    const pills = document.querySelectorAll('.export-opt-pills[data-key="' + key + '"] .export-opt-pill');
+    pills.forEach(p => p.classList.toggle('active', p.dataset.val === val));
+
+    // Mettre à jour _config
+    if (key === '_prix_mode') {
+      // Ajuster les colonnes selon le mode prix
+      const base = _config.colonnes.filter(c => c !== 'pvht' && c !== 'pvttc');
+      if (val === 'ht') base.push('pvht');
+      else if (val === 'ttc') base.push('pvttc');
+      else { base.push('pvht'); base.push('pvttc'); }
+      _config.colonnes = base;
+    } else if (key === '_show_marge') {
+      const base = _config.colonnes.filter(c => c !== 'marge_euros' && c !== 'marge_pct');
+      if (val === 'oui') { base.push('marge_euros'); base.push('marge_pct'); }
+      _config.colonnes = base;
+    } else {
+      _config[key] = val;
     }
   }
 
-  // ── ÉTAPE 2 : Tuto ──
-  function dismissTuto() {
-    localStorage.setItem('dcant_export_tuto_seen', '1');
-    clearInterval(_wizExInterval);
-    wizGo(3);
+  // ── CARD 2 : Questionnaire personnalisé ──
+  function _startQuestionnaire() {
+    const tpl = g('exportOptsTemplate');
+    const cst = g('exportOptsCustom');
+    if (tpl) tpl.style.display = 'none';
+    if (cst) cst.style.display = '';
+
+    const title = g('exportCard2Title');
+    const sub = g('exportCard2Sub');
+    if (title) title.textContent = 'Personnalisé';
+    if (sub) sub.textContent = 'Répondez à quelques questions pour configurer votre export.';
+
+    const flow = g('exportChatFlow');
+    if (flow) flow.innerHTML = '';
+    _chatStep = 0;
+    _showQuestion(0);
   }
 
-  function _startTutoCarousel() {
-    clearInterval(_wizExInterval);
-    const slides = document.querySelectorAll('#exportTutoCarousel .wiz-tuto-slide');
-    if (!slides.length) return;
-    let cur = 0;
-    _wizExInterval = setInterval(() => {
-      slides[cur].classList.remove('active');
-      cur = (cur + 1) % slides.length;
-      slides[cur].classList.add('active');
-    }, 2200);
-  }
-
-  // ── ÉTAPE 3 : Instructions ──
-  function _startPlaceholderRotation() {
-    clearInterval(_wizExInterval);
-    const ta = g('exportInstrInput');
-    if (!ta) return;
-    const examples = [
-      'Une carte des vins triée par appellation',
-      'Un tarif pro en PDF avec les prix HT',
-      'Un visuel pour Instagram avec mes 5 meilleurs vins',
-      'Un tableau avec domaine, cuvée, prix TTC',
-      'Une fiche dégustation pour chaque vin'
-    ];
-    let i = 0;
-    ta.placeholder = examples[0];
-    _wizExInterval = setInterval(() => {
-      if (ta.value) { clearInterval(_wizExInterval); return; }
-      i = (i + 1) % examples.length;
-      ta.placeholder = examples[i];
-    }, 2800);
-  }
-
-  function chatAutosize(ta) {
-    ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
-  }
-
-  function toggleRecording() {
-    if (ExportVoice.isRecording()) ExportVoice.stop();
-    else ExportVoice.start();
-  }
-
-  function attachDocument() {
-    g('exportAttachInput').click();
-  }
-
-  function handleAttachFile(input) {
-    const file = input.files[0];
-    if (!file) return;
-    _attachedFile = file;
-    const status = g('exportAttachStatus');
-    if (status) {
-      status.style.display = 'block';
-      status.innerHTML = '<span style="margin-right:6px">📎</span>' + _esc(file.name);
+  function _showQuestion(idx) {
+    if (idx >= _QUESTIONS.length) {
+      _questionnaireDone();
+      return;
     }
+
+    const q = _QUESTIONS[idx];
+    const flow = g('exportChatFlow');
+    if (!flow) return;
+
+    // Ajouter bulle question
+    const bubble = document.createElement('div');
+    bubble.className = 'export-chat-bubble export-chat-bubble-q';
+    bubble.textContent = q.text;
+    flow.appendChild(bubble);
+
+    // Afficher les pills de réponse
+    const bar = g('exportAnswerBar');
+    const pills = g('exportAnswerPills');
+    const other = g('exportAnswerOther');
+    if (bar) bar.style.display = '';
+    if (other) other.style.display = 'none';
+
+    if (q.multi) {
+      _showMultiSelect(idx, q);
+    } else {
+      _showSingleSelect(idx, q);
+    }
+
+    // Scroll en bas
+    setTimeout(() => flow.scrollTop = flow.scrollHeight, 50);
   }
 
-  async function sendInstruction() {
+  function _showSingleSelect(idx, q) {
+    const pills = g('exportAnswerPills');
+    if (!pills) return;
+
+    pills.innerHTML = q.options.map(opt =>
+      '<button class="export-chat-pill" onclick="Export.answerQuestion(' + idx + ',\'' + _esc(opt).replace(/'/g, "\\'") + '\')">' + _esc(opt) + '</button>'
+    ).join('') +
+    '<button class="export-chat-pill export-chat-pill-other" onclick="Export.showOtherInput()">Autre</button>';
+  }
+
+  function _showMultiSelect(idx, q) {
+    const pills = g('exportAnswerPills');
+    if (!pills) return;
+
+    const defs = q.defaults || [];
+    const lbls = q.labels || {};
+    pills.innerHTML = q.options.map(opt => {
+      const selected = defs.includes(opt);
+      return '<button class="export-chat-pill export-chat-pill-toggle' + (selected ? ' active' : '') + '" data-val="' + opt + '" onclick="this.classList.toggle(\'active\')">' +
+        _esc(lbls[opt] || opt) + '</button>';
+    }).join('') +
+    '<button class="export-chat-pill export-chat-pill-validate" onclick="Export.validateMultiSelect(' + idx + ')">Valider</button>';
+  }
+
+  function showOtherInput() {
+    const other = g('exportAnswerOther');
+    if (other) other.style.display = 'flex';
+    const input = g('exportCustomInput');
+    if (input) { input.value = ''; input.focus(); }
+  }
+
+  function submitCustomAnswer() {
     if (ExportVoice.isRecording()) {
       ExportVoice.stop();
-      await new Promise(r => setTimeout(r, 600));
+      setTimeout(() => submitCustomAnswer(), 600);
+      return;
     }
-    const ta = g('exportInstrInput');
-    if (!ta) return;
-    const text = ta.value.trim();
-    if (!text) { toast('Décrivez ce que vous voulez exporter.'); return; }
-
-    _instruction = text;
-    const spinner = g('exportInstrSpinner');
-    const sendBtn = g('exportInstrBtn');
-    if (sendBtn) sendBtn.disabled = true;
-    if (spinner) spinner.style.display = 'flex';
-
-    try {
-      const sample = _exportRows.slice(0, 5).map(r =>
-        `${r.domaine} / ${r.cuvee || ''} / ${r.appellation || ''} / ${r.millesime || ''} / PA:${r.prix_achat}€ / PVHT:${r.pvht}€ / TTC:${r.pvttc}€ / Marge:${r.marge_euros}€ (${r.marge_pct}%) / Coeff:${r.coeff}`
-      ).join('\n');
-
-      const userContent = [];
-
-      if (_attachedFile) {
-        const isPdf = _attachedFile.type === 'application/pdf' || _attachedFile.name.endsWith('.pdf');
-        if (isPdf) {
-          const base64 = await _fileToBase64(_attachedFile);
-          userContent.push({
-            type: 'document',
-            source: { type: 'base64', media_type: 'application/pdf', data: base64 }
-          });
-        } else {
-          const content = await _attachedFile.text();
-          userContent.push({ type: 'text', text: 'Document de référence :\n' + content.slice(0, 2000) });
-        }
-      }
-
-      const instrText = _attachedFile
-        ? 'Instructions : "' + text + '"\nUn document de référence est joint (structure à reproduire).'
-        : 'Instructions : "' + text + '"';
-      userContent.push({ type: 'text', text: instrText });
-
-      const systemPrompt = 'Tu es un assistant export pour un outil de calcul de marge vin.\n' +
-        'L\'utilisateur a ' + _exportRows.length + ' vins dans son historique avec ces champs : domaine, cuvee, appellation, millesime, prix_achat, pvht, pvttc, marge_euros, marge_pct, coeff, commentaire.\n\n' +
-        'Exemples de ses données :\n' + sample + '\n\n' +
-        'Réponds UNIQUEMENT en JSON valide, sans texte autour, sans markdown :\n' +
-        '{"filtre":"description du filtre ou tous","tri":"critère de tri ou aucun","mise_en_page":"type de document (tableau, carte des vins, tarif, visuel...)","colonnes":["col1","col2"],"contenu_genere":"descriptions ou titres générés, ou null","resume":"phrase résumant ce qui sera fait"}\n\n' +
-        'N\'invente JAMAIS de données vin. Utilise uniquement les données fournies.';
-
-      const response = await fetch('/api/ai', {
-        method: 'POST',
-        headers: await authHeaders(),
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 800,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userContent }]
-        })
-      });
-
-      if (!response.ok) {
-        if (response.status === 529) throw new Error('API surchargée, réessayez dans 30s');
-        throw new Error('API ' + response.status);
-      }
-      const data = await response.json();
-      const raw = data.content[0].text.trim()
-        .replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-      _interpretation = JSON.parse(raw);
-
-      // Nom d'export généré localement (pas d'appel AI)
-      _exportName = _generateExportNameLocal();
-
-      _renderInterpretation();
-      wizGo(4);
-
-    } catch (e) {
-      console.error('Export instruction error:', e);
-      toast('Erreur : ' + (e.message || 'Réessayez.'));
-    }
-
-    if (spinner) spinner.style.display = 'none';
-    if (sendBtn) sendBtn.disabled = false;
+    const input = g('exportCustomInput');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    answerQuestion(_chatStep, text);
   }
 
-  function _fileToBase64(file) {
-    return new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result.split(',')[1]);
-      r.onerror = rej;
-      r.readAsDataURL(file);
+  function answerQuestion(idx, value) {
+    const q = _QUESTIONS[idx];
+    if (!q) return;
+
+    // Stocker la réponse
+    _config[q.key] = value;
+
+    // Afficher bulle réponse user
+    const flow = g('exportChatFlow');
+    if (flow) {
+      const bubble = document.createElement('div');
+      bubble.className = 'export-chat-bubble export-chat-bubble-a';
+      bubble.textContent = value;
+      flow.appendChild(bubble);
+    }
+
+    // Cacher la barre de réponse
+    const bar = g('exportAnswerBar');
+    if (bar) bar.style.display = 'none';
+
+    // Passer à la question suivante
+    _chatStep = idx + 1;
+    setTimeout(() => _showQuestion(_chatStep), 400);
+  }
+
+  function validateMultiSelect(idx) {
+    const q = _QUESTIONS[idx];
+    if (!q) return;
+
+    const selected = [];
+    document.querySelectorAll('#exportAnswerPills .export-chat-pill-toggle.active').forEach(p => {
+      selected.push(p.dataset.val);
     });
+
+    if (!selected.length) {
+      toast('Sélectionnez au moins une information.');
+      return;
+    }
+
+    _config[q.key] = selected;
+
+    // Afficher bulle résumé
+    const lbls = q.labels || {};
+    const summary = selected.map(s => lbls[s] || s).join(', ');
+    const flow = g('exportChatFlow');
+    if (flow) {
+      const bubble = document.createElement('div');
+      bubble.className = 'export-chat-bubble export-chat-bubble-a';
+      bubble.textContent = summary;
+      flow.appendChild(bubble);
+    }
+
+    const bar = g('exportAnswerBar');
+    if (bar) bar.style.display = 'none';
+
+    _chatStep = idx + 1;
+    setTimeout(() => _showQuestion(_chatStep), 400);
   }
 
-  // ── ÉTAPE 4 : Interprétation + choix format ──
-  function _renderInterpretation() {
-    const bubble = g('exportConfirmBubble');
-    const rules = g('exportConfirmRules');
-    if (!bubble || !rules || !_interpretation) return;
+  function _questionnaireDone() {
+    // Déterminer le groupement depuis le tri
+    const triMap = { 'Par appellation': 'appellation', 'Par domaine': 'domaine', 'Par prix': 'aucun' };
+    if (typeof _config.tri === 'string' && triMap[_config.tri]) {
+      _config.groupement = triMap[_config.tri];
+      _config.tri = triMap[_config.tri] || _config.tri;
+    }
+    // Afficher message de fin dans le chat
+    const flow = g('exportChatFlow');
+    if (flow) {
+      const bubble = document.createElement('div');
+      bubble.className = 'export-chat-bubble export-chat-bubble-q';
+      bubble.textContent = 'Parfait ! Voici le récap de votre export.';
+      flow.appendChild(bubble);
+    }
+    setTimeout(() => wizGo(3), 800);
+  }
+
+  // ── CARD 3 : Récap ──
+  function _renderRecap() {
+    const rules = g('exportRecapRules');
+    if (!rules) return;
+
+    const typeLabels = { carte: 'Carte des vins', tarif: 'Tarif professionnel', inventaire: 'Inventaire', custom: 'Personnalisé' };
+    const colLabels = { domaine: 'Domaine', cuvee: 'Cuvée', appellation: 'Appellation', millesime: 'Millésime', prix_achat: 'Prix achat', pvht: 'Prix HT', pvttc: 'Prix TTC', marge_euros: 'Marge €', marge_pct: 'Marge %', coeff: 'Coeff', commentaire: 'Commentaire' };
 
     const items = [
-      { k: 'Sélection', v: _interpretation.filtre || 'tous' },
-      { k: 'Tri', v: _interpretation.tri || 'aucun' },
-      { k: 'Mise en page', v: _interpretation.mise_en_page || 'tableau' },
-      { k: 'Colonnes', v: (_interpretation.colonnes || []).join(', ') || '-' }
+      { k: 'Type', v: typeLabels[_config.type] || _config.type },
+      { k: 'Audience', v: _config.audience || '-' },
+      { k: 'Colonnes', v: (_config.colonnes || []).map(c => colLabels[c] || c).join(', ') || '-' },
+      { k: 'Tri', v: _config.tri || 'aucun' },
+      { k: 'Groupement', v: _config.groupement || 'aucun' }
     ];
-    if (_interpretation.contenu_genere) {
-      items.push({ k: 'Contenu', v: _interpretation.contenu_genere });
+    if (_config.notes) {
+      items.push({ k: 'Notes', v: _config.notes });
     }
 
     rules.innerHTML = items.map(item =>
@@ -365,29 +509,25 @@ const Export = (() => {
       '</div>'
     ).join('');
 
-    const resume = g('exportResume');
-    if (resume) resume.textContent = _interpretation.resume || '';
-
-    bubble.style.display = 'block';
+    // Nom d'export
+    _exportName = _generateExportName();
   }
 
+  function _generateExportName() {
+    const typeLabels = { carte: 'Carte des vins', tarif: 'Tarif pro', inventaire: 'Inventaire', custom: 'Export personnalisé' };
+    const fmt = _selectedFormat.toUpperCase();
+    return (typeLabels[_config.type] || 'Export') + ' (' + fmt + ')';
+  }
+
+  // ── FORMAT ──
   function selectFormat(fmt) {
-    _selectedFormat = fmt;
-    _selectFormatPill(fmt);
-  }
-
-  function _selectFormatPill(fmt) {
     _selectedFormat = fmt;
     document.querySelectorAll('.export-fmt-pill').forEach(p =>
       p.classList.toggle('active', p.dataset.fmt === fmt));
+    _exportName = _generateExportName();
   }
 
-  function editInstruction() {
-    const ta = g('exportInstrInput');
-    if (ta) ta.value = _instruction;
-    wizGo(3);
-  }
-
+  // ── GENERATE ──
   async function generate() {
     const spinner = g('exportGenSpinner');
     const btn = g('exportGenBtn');
@@ -399,7 +539,7 @@ const Export = (() => {
         await _generateCSV();
       } else {
         await _generateHTML();
-        wizGo(5);
+        wizGo(4);
       }
     } catch (e) {
       console.error('Generate error:', e);
@@ -411,12 +551,44 @@ const Export = (() => {
     if (btn) btn.disabled = false;
   }
 
+  // ── PROMPT STRUCTURÉ ──
+  function _buildPrompt() {
+    const colLabels = { domaine: 'Domaine', cuvee: 'Cuvée', appellation: 'Appellation', millesime: 'Millésime', prix_achat: 'Prix d\'achat', pvht: 'Prix HT', pvttc: 'Prix TTC', marge_euros: 'Marge €', marge_pct: 'Marge %', coeff: 'Coefficient', commentaire: 'Commentaire' };
+
+    const system = 'RÔLE : Tu es un expert en mise en page de documents viticoles professionnels.\n\n' +
+      'TÂCHE : Génère un document HTML de type "' + (_config.mise_en_page || 'tableau') + '" destiné à ' + (_config.audience || 'usage professionnel') + '.\n\n' +
+      'CONTEXTE : L\'utilisateur est un professionnel du vin. Il a ' + _exportRows.length + ' vins dans son historique.\n\n' +
+      'FORMAT DE SORTIE : HTML avec CSS inline, largeur 800px max.\n' +
+      'Utilise les CSS variables :\n' +
+      '- var(--export-bg) pour le fond\n' +
+      '- var(--export-text) pour le texte\n' +
+      '- var(--export-accent) pour les accents (titres, bordures)\n' +
+      '- var(--export-font-display) pour les titres\n' +
+      '- var(--export-font-body) pour le corps de texte\n\n' +
+      'STRUCTURE :\n' +
+      '- Colonnes à afficher : ' + (_config.colonnes || []).map(c => colLabels[c] || c).join(', ') + '\n' +
+      '- Tri : ' + (_config.tri || 'aucun') + '\n' +
+      '- Groupement : ' + (_config.groupement || 'aucun') + '\n' +
+      (_config.notes ? '- Notes : ' + _config.notes + '\n' : '') + '\n' +
+      'EXEMPLE : Pense à un document professionnel soigné avec titres clairs, espacement aéré, typographie élégante.\n\n' +
+      'RÉFLEXION : Avant de générer, réfléchis à la meilleure mise en page pour ce type de document et cette audience.\n\n' +
+      'CONTRAINTES :\n' +
+      '- N\'invente JAMAIS de données vin\n' +
+      '- Utilise UNIQUEMENT les données JSON fournies ci-dessous\n' +
+      '- Retourne UNIQUEMENT le HTML, sans ```, sans doctype';
+
+    return system;
+  }
+
   async function _generateCSV() {
     const dataLines = _exportRows.map(r =>
       r.domaine + '|' + (r.cuvee || '') + '|' + (r.appellation || '') + '|' + (r.millesime || '') +
       '|PA:' + r.prix_achat + '|PVHT:' + r.pvht + '|TTC:' + r.pvttc +
       '|Marge:' + r.marge_euros + '|Coeff:' + r.coeff + '|' + (r.commentaire || '')
     ).join('\n');
+
+    const colLabels = { domaine: 'Domaine', cuvee: 'Cuvée', appellation: 'Appellation', millesime: 'Millésime', prix_achat: 'Prix achat', pvht: 'Prix HT', pvttc: 'Prix TTC', marge_euros: 'Marge €', marge_pct: 'Marge %', coeff: 'Coeff', commentaire: 'Commentaire' };
+    const cols = (_config.colonnes || []).map(c => colLabels[c] || c).join(', ');
 
     const response = await fetch('/api/ai', {
       method: 'POST',
@@ -425,10 +597,9 @@ const Export = (() => {
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 4000,
         messages: [{ role: 'user', content:
-          'Génère un fichier CSV avec ces colonnes exactes : ' + (_interpretation.colonnes || []).join(', ') + '\n' +
+          'Génère un fichier CSV avec ces colonnes exactes : ' + cols + '\n' +
           'Séparateur : ";"\n' +
-          'Tri : ' + (_interpretation.tri || 'aucun') + '\n' +
-          'Filtre : ' + (_interpretation.filtre || 'tous') + '\n' +
+          'Tri : ' + (_config.tri || 'aucun') + '\n' +
           'Données (' + _exportRows.length + ' lignes) :\n' + dataLines + '\n' +
           'Retourne UNIQUEMENT le CSV, avec ligne d\'en-tête, rien d\'autre. N\'invente aucune donnée.'
         }]
@@ -462,23 +633,8 @@ const Export = (() => {
       coeff: r.coeff, commentaire: r.commentaire || ''
     })).join('\n');
 
-    const systemPrompt = 'Tu génères du HTML pour un export de données vin. Le HTML sera rendu dans un conteneur de 800px de large.\n' +
-      'Utilise du CSS inline pour le style. Le design doit être élégant et professionnel.\n' +
-      'Utilise ces CSS variables pour les couleurs et polices :\n' +
-      '- var(--export-bg) pour le fond\n' +
-      '- var(--export-text) pour le texte\n' +
-      '- var(--export-accent) pour les accents (titres, bordures)\n' +
-      '- var(--export-font-display) pour les titres\n' +
-      '- var(--export-font-body) pour le corps de texte\n\n' +
-      'IMPORTANT : N\'invente JAMAIS de données vin. Utilise UNIQUEMENT les données JSON fournies ci-dessous.\n' +
-      'Retourne UNIQUEMENT le HTML, sans balises ```, sans doctype, juste le contenu.';
-
-    const userPrompt = 'Mise en page : ' + (_interpretation.mise_en_page || 'tableau') + '\n' +
-      'Colonnes : ' + ((_interpretation.colonnes || []).join(', ') || 'toutes') + '\n' +
-      'Tri : ' + (_interpretation.tri || 'aucun') + '\n' +
-      'Filtre : ' + (_interpretation.filtre || 'tous') + '\n' +
-      (_interpretation.contenu_genere ? 'Contenu additionnel : ' + _interpretation.contenu_genere + '\n' : '') +
-      'Données (' + _exportRows.length + ' vins) :\n' + dataJson;
+    const systemPrompt = _buildPrompt();
+    const userPrompt = 'Données (' + _exportRows.length + ' vins) :\n' + dataJson;
 
     const response = await fetch('/api/ai', {
       method: 'POST',
@@ -501,7 +657,7 @@ const Export = (() => {
     _renderPreview();
   }
 
-  // ── ÉTAPE 5 : Aperçu + personnalisation ──
+  // ── CARD 4 : Aperçu + personnalisation ──
   function _renderPreview() {
     const container = g('exportPreviewContainer');
     if (!container) return;
@@ -527,6 +683,16 @@ const Export = (() => {
     document.querySelectorAll('.export-font-pill').forEach(p =>
       p.classList.toggle('active', p.dataset.font === key));
     _renderPreview();
+  }
+
+  function chatAutosize(ta) {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+  }
+
+  function toggleRecording() {
+    if (ExportVoice.isRecording()) ExportVoice.stop();
+    else ExportVoice.start();
   }
 
   async function download() {
@@ -576,7 +742,6 @@ const Export = (() => {
         }, 'image/jpeg', 0.95);
       }
 
-      // Save to history after successful download
       _saveToHistory();
     } catch (e) {
       console.error('Download error:', e);
@@ -584,7 +749,7 @@ const Export = (() => {
     }
   }
 
-  // ── REFINEMENT (Chat Card 5) ──
+  // ── REFINEMENT (Chat Card 4) ──
   async function sendRefinement() {
     const ta = g('exportRefineInput');
     if (!ta) return;
@@ -626,23 +791,14 @@ const Export = (() => {
     if (btn) btn.disabled = false;
   }
 
-  // ── AI NAMING ──
-  function _generateExportNameLocal() {
-    // Extrait un nom court depuis l'instruction (pas d'appel API)
-    const words = _instruction.replace(/[^\wàâäéèêëïîôùûüÿçœæ\s]/gi, '').trim().split(/\s+/);
-    const short = words.slice(0, 5).join(' ');
-    const fmt = _selectedFormat.toUpperCase();
-    return short ? short + ' (' + fmt + ')' : 'Export ' + fmt + ' ' + new Date().toLocaleDateString('fr-FR');
-  }
-
   // ── SAVE TO HISTORY ──
   async function _saveToHistory() {
     if (!App.user) return;
     try {
       await Storage.saveExportHistory(App.user.id, {
         name: _exportName || 'Export ' + new Date().toLocaleDateString('fr-FR'),
-        instruction: _instruction,
-        interpretation: _interpretation,
+        instruction: JSON.stringify(_config),
+        interpretation: _config,
         selected_format: _selectedFormat,
         template_custom: _templateCustom,
         generated_html: _generatedHTML
@@ -703,8 +859,10 @@ const Export = (() => {
     const item = _exportHistory[idx];
     if (!item) return;
 
-    _instruction = item.instruction || '';
-    _interpretation = item.interpretation || null;
+    // Restaurer _config depuis l'historique
+    if (item.interpretation && typeof item.interpretation === 'object') {
+      _config = { ...item.interpretation };
+    }
     _selectedFormat = item.selected_format || 'pdf';
     _templateCustom = item.template_custom || { bgColor: '#ffffff', textColor: '#1a1a1a', accentColor: '#1a2744', fontPair: 'classic' };
     _generatedHTML = item.generated_html || '';
@@ -727,13 +885,9 @@ const Export = (() => {
       if (cpAcc) cpAcc.value = _templateCustom.accentColor;
       document.querySelectorAll('.export-font-pill').forEach(p =>
         p.classList.toggle('active', p.dataset.font === _templateCustom.fontPair));
-      wizGo(5);
-    } else if (_interpretation) {
-      _renderInterpretation();
       wizGo(4);
     } else {
-      const ta = g('exportInstrInput');
-      if (ta) ta.value = _instruction;
+      _renderRecap();
       wizGo(3);
     }
   }
@@ -766,10 +920,10 @@ const Export = (() => {
 
   return {
     open, close,
-    exportDirect, startAI,
-    dismissTuto,
-    chatAutosize, toggleRecording, attachDocument, handleAttachFile, sendInstruction,
-    selectFormat, editInstruction, generate,
+    exportDirect, selectType, selectOpt,
+    showOtherInput, submitCustomAnswer, answerQuestion, validateMultiSelect,
+    chatAutosize, toggleRecording,
+    selectFormat, generate,
     updateCustom, selectFontPair, download,
     sendRefinement,
     openHistory, closeHistory, reuseHistory, deleteHistory,

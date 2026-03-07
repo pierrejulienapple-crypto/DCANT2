@@ -12,7 +12,7 @@ const ExportVoice = (() => {
   let _transcTimer = null;
 
   function _showTranscSpinner() {
-    const wrap = g('exportInstrInput')?.closest('.wiz-chat-input-wrap');
+    const wrap = g('exportCustomInput')?.closest('.wiz-chat-input-wrap');
     if (!wrap) return;
     wrap.style.position = 'relative';
     let ov = g('exportTranscSpinner');
@@ -97,7 +97,7 @@ const ExportVoice = (() => {
               });
               const data = await resp.json();
               if (!resp.ok) throw new Error(data.error || 'Erreur Whisper');
-              const input = g('exportInstrInput');
+              const input = g('exportCustomInput');
               if (input && data.text) {
                 const existing = input.value.trimEnd();
                 input.value = existing ? existing + ' ' + data.text : data.text;
@@ -130,7 +130,7 @@ const ExportVoice = (() => {
     _recognition.lang = 'fr-FR';
     _recognition.continuous = true;
     _recognition.interimResults = true;
-    const existingText = (g('exportInstrInput')?.value || '').trimEnd();
+    const existingText = (g('exportCustomInput')?.value || '').trimEnd();
 
     _recognition.onstart = () => _setUI(true);
 
@@ -141,7 +141,7 @@ const ExportVoice = (() => {
         else interim += e.results[i][0].transcript;
       }
       const sep = existingText ? ' ' : '';
-      g('exportInstrInput').value = existingText + sep + final + interim;
+      g('exportCustomInput').value = existingText + sep + final + interim;
     };
 
     _recognition.onend = () => {
