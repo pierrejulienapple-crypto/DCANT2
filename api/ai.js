@@ -67,14 +67,14 @@ export default async function handler(req, res) {
       'anthropic-version': '2023-06-01'
     };
 
-    // Retry on 529 (overloaded) up to 3 times with backoff
+    // Retry on 529 (overloaded) up to 5 times with longer backoff
     let response, data;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 5; attempt++) {
       response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST', headers: hdrs, body: payload
       });
       if (response.status !== 529) break;
-      const wait = (attempt + 1) * 2000; // 2s, 4s, 6s
+      const wait = (attempt + 1) * 3000; // 3s, 6s, 9s, 12s, 15s
       await new Promise(r => setTimeout(r, wait));
     }
 
