@@ -123,12 +123,8 @@ const Export = (() => {
     if (dz) dz.classList.remove('drag-over');
     const ti = g('exportTemplateInfo');
     if (ti) ti.style.display = 'none';
-    const ab = g('exportAnalyzeBtn');
-    if (ab) ab.style.display = 'none';
     const as = g('exportAnalyzeSpinner');
     if (as) as.style.display = 'none';
-    const chatBar = g('exportTplChatBar');
-    if (chatBar) chatBar.style.display = 'none';
     const tinput = g('exportTplInput');
     if (tinput) tinput.value = '';
 
@@ -304,12 +300,6 @@ const Export = (() => {
     if (nameEl) nameEl.textContent = file.name + ' (' + _formatSize(file.size) + ')';
     const info = g('exportTemplateInfo');
     if (info) info.style.display = '';
-    const btn = g('exportAnalyzeBtn');
-    if (btn) btn.style.display = '';
-
-    // Afficher la barre de description (comme l'import)
-    const chatBar = g('exportTplChatBar');
-    if (chatBar) chatBar.style.display = '';
   }
 
   function _formatSize(bytes) {
@@ -333,27 +323,29 @@ const Export = (() => {
 
   // ── Analyze template (1 appel IA) ──
   async function analyzeTemplate() {
-    if (!_templateFile) { toast('Aucun fichier sélectionné.'); return; }
-
     const userDesc = (g('exportTplInput')?.value || '').trim();
-    const ext = _templateFile.name.split('.').pop().toLowerCase();
-    const isImage = _IMAGE_EXTS.includes(ext);
+
+    if (!_templateFile && !userDesc) {
+      toast('Importez un fichier ou décrivez les colonnes.');
+      return;
+    }
+
+    const ext = _templateFile ? _templateFile.name.split('.').pop().toLowerCase() : '';
+    const isImage = _templateFile && _IMAGE_EXTS.includes(ext);
+    const isSpread = _templateFile && _isSpreadsheet;
 
     const spinner = g('exportAnalyzeSpinner');
-    const btn = g('exportAnalyzeBtn');
     if (spinner) spinner.style.display = 'flex';
-    if (btn) btn.style.display = 'none';
 
     try {
       const fieldKeys = ALL_COLS.join(', ');
       let messages;
 
-      if (_isSpreadsheet) {
+      if (isSpread) {
         // ── Spreadsheet → lire headers avec SheetJS ──
         if (typeof XLSX === 'undefined') {
           toast('SheetJS non chargé. Rechargez la page.');
           if (spinner) spinner.style.display = 'none';
-          if (btn) btn.style.display = '';
           return;
         }
         const data = await _templateFile.arrayBuffer();
@@ -364,7 +356,6 @@ const Export = (() => {
         if (!rows.length || !rows[0].length) {
           toast('Fichier vide ou sans en-têtes.');
           if (spinner) spinner.style.display = 'none';
-          if (btn) btn.style.display = '';
           return;
         }
 
@@ -397,17 +388,25 @@ const Export = (() => {
           }
         ]}];
 
-      } else {
+      } else if (_templateFile && !isSpread && !isImage) {
         // ── Autre format (PDF, doc…) → description obligatoire ──
         if (!userDesc) {
-          toast('Pour ce type de fichier, décrivez les colonnes dans le champ texte.');
+          toast('Pour ce type de fichier, décrivez les colonnes.');
           if (spinner) spinner.style.display = 'none';
-          if (btn) btn.style.display = '';
           return;
         }
         messages = [{ role: 'user', content:
           'L\'utilisateur a un fichier modèle (' + _templateFile.name + ') d\'un autre logiciel.\n' +
           'Il décrit les colonnes :\n' + userDesc +
+          '\n\nCHAMPS DCANT DISPONIBLES : ' + fieldKeys +
+          '\n\nExemples : "Producteur"→domaine, "AOC"→appellation, "Vintage"→millesime, "Code barre"→null' +
+          '\n\nDéduis les colonnes depuis la description. Réponds UNIQUEMENT en JSON :\n[{"templateCol":"nom_colonne","dcantField":"cle_ou_null"}]'
+        }];
+
+      } else {
+        // ── Pas de fichier, description seule ──
+        messages = [{ role: 'user', content:
+          'L\'utilisateur décrit les colonnes d\'un modèle d\'export d\'un autre logiciel :\n' + userDesc +
           '\n\nCHAMPS DCANT DISPONIBLES : ' + fieldKeys +
           '\n\nExemples : "Producteur"→domaine, "AOC"→appellation, "Vintage"→millesime, "Code barre"→null' +
           '\n\nDéduis les colonnes depuis la description. Réponds UNIQUEMENT en JSON :\n[{"templateCol":"nom_colonne","dcantField":"cle_ou_null"}]'
@@ -435,7 +434,7 @@ const Export = (() => {
       const parsed = JSON.parse(raw);
 
       // Si non-spreadsheet, extraire les headers depuis la réponse IA
-      if (!_isSpreadsheet) {
+      if (!isSpread) {
         _templateHeaders = parsed.map(m => m.templateCol);
       }
 
@@ -455,7 +454,6 @@ const Export = (() => {
     } catch (e) {
       console.error('Analyze error:', e);
       toast('Erreur d\'analyse : ' + (e.message || 'Réessayez.'));
-      if (btn) btn.style.display = '';
     }
 
     if (spinner) spinner.style.display = 'none';
