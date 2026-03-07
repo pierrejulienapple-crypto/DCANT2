@@ -14,7 +14,7 @@ const Export = (() => {
   let _selectedCols = ['domaine', 'cuvee', 'appellation', 'millesime', 'pvttc'];
   let _templateFile = null;
   let _templateHeaders = [];
-  let _mappings = [];            // [{templateCol, dcantField, defaultValue}]
+  let _mappings = [];            // [{templateCol, dcantFields:[], defaultValue}]
   let _isSpreadsheet = true;
   let _exportHistory = [];
   let _scrollY = 0;
@@ -443,7 +443,7 @@ const Export = (() => {
         const dcantField = match?.dcantField || null;
         return {
           templateCol: h,
-          dcantField: dcantField && DCANT_FIELDS[dcantField] ? dcantField : null,
+          dcantFields: dcantField && DCANT_FIELDS[dcantField] ? [dcantField] : [],
           defaultValue: ''
         };
       });
@@ -462,14 +462,27 @@ const Export = (() => {
   // ── CARD 3 : Mapping (pills + éditeur inline) ──
   let _selectedMappingIdx = -1;
 
+  function _isMapped(m) {
+    return (m.dcantFields && m.dcantFields.length > 0) || (m.defaultValue && m.defaultValue.trim());
+  }
+
+  function _mappingLabel(m) {
+    if (m.dcantFields && m.dcantFields.length > 0) {
+      return m.dcantFields.map(k => DCANT_FIELDS[k]?.label || k).join(', ');
+    }
+    if (m.defaultValue && m.defaultValue.trim()) return m.defaultValue.trim();
+    return null;
+  }
+
   function _renderMappings() {
     const container = g('exportMappingList');
     if (!container) return;
 
     container.innerHTML = _mappings.map((m, i) => {
-      const mapped = !!m.dcantField;
+      const mapped = _isMapped(m);
+      const target = _mappingLabel(m);
       const label = mapped
-        ? _esc(m.templateCol) + ' \u2192 ' + _esc(DCANT_FIELDS[m.dcantField].label)
+        ? _esc(m.templateCol) + ' \u2192 ' + _esc(target)
         : _esc(m.templateCol);
       const cls = 'export-map-pill' + (mapped ? ' mapped' : ' unmapped') +
         (i === _selectedMappingIdx ? ' selected' : '');
@@ -492,36 +505,57 @@ const Export = (() => {
     // Show editor
     const editor = g('exportMapEditor');
     const title = g('exportMapEditorTitle');
-    const select = g('exportMapEditorSelect');
-    const defaultRow = g('exportMapEditorDefaultRow');
+    const fieldsContainer = g('exportMapEditorFields');
     const defaultInput = g('exportMapEditorDefault');
-    if (!editor || !title || !select) return;
+    if (!editor || !title || !fieldsContainer) return;
 
     title.textContent = '\u00ab ' + m.templateCol + ' \u00bb';
 
-    select.innerHTML = '<option value="">(laisser vide)</option>' +
-      ALL_COLS.map(k =>
-        '<option value="' + k + '"' + (m.dcantField === k ? ' selected' : '') + '>' +
-        _esc(DCANT_FIELDS[k].label) + '</option>'
-      ).join('');
+    // Render DCANT field pills (multi-select)
+    const fields = m.dcantFields || [];
+    fieldsContainer.innerHTML = ALL_COLS.map(k => {
+      const active = fields.includes(k);
+      return '<button class="export-opt-pill export-opt-pill-sm' + (active ? ' active' : '') +
+        '" onclick="Export.editorToggleField(\'' + k + '\')">' +
+        _esc(DCANT_FIELDS[k].label.replace(/ \(.*\)/, '')) + '</button>';
+    }).join('');
 
-    if (!m.dcantField) {
-      defaultRow.style.display = '';
-      defaultInput.value = m.defaultValue || '';
-    } else {
-      defaultRow.style.display = 'none';
-    }
+    if (defaultInput) defaultInput.value = m.defaultValue || '';
 
     editor.style.display = '';
   }
 
-  function editorChangeMapping(field) {
+  function editorToggleField(key) {
     const idx = _selectedMappingIdx;
     if (idx < 0 || !_mappings[idx]) return;
-    _mappings[idx].dcantField = field || null;
-    _mappings[idx].defaultValue = '';
+    const fields = _mappings[idx].dcantFields || [];
+    const i = fields.indexOf(key);
+    if (i >= 0) fields.splice(i, 1);
+    else fields.push(key);
+    _mappings[idx].dcantFields = fields;
+    // Update pill in editor
+    const btn = document.querySelector('.export-map-field-pills .export-opt-pill-sm[onclick*="' + key + '"]');
+    if (btn) btn.classList.toggle('active', fields.includes(key));
     _renderMappings();
-    selectMapping(idx);
+  }
+
+  function editorValidate() {
+    const idx = _selectedMappingIdx;
+    if (idx < 0 || !_mappings[idx]) return;
+    const m = _mappings[idx];
+    const defInput = g('exportMapEditorDefault');
+    if (defInput) m.defaultValue = defInput.value.trim();
+    if (!_isMapped(m)) {
+      toast('Sélectionnez un champ ou saisissez une valeur.');
+      return;
+    }
+    _renderMappings();
+    // Fermer l'éditeur et désélectionner
+    const editor = g('exportMapEditor');
+    if (editor) editor.style.display = 'none';
+    _selectedMappingIdx = -1;
+    document.querySelectorAll('.export-map-pill').forEach(p => p.classList.remove('selected'));
+    toast('\u2713 ' + m.templateCol + ' valid\u00e9');
   }
 
   function editorSetDefault(val) {
@@ -544,8 +578,11 @@ const Export = (() => {
     const headers = _mappings.map(m => m.templateCol);
     const rows = sorted.map(e =>
       _mappings.map(m => {
-        if (m.dcantField && DCANT_FIELDS[m.dcantField]) {
-          return DCANT_FIELDS[m.dcantField].getter(e);
+        if (m.dcantFields && m.dcantFields.length > 0) {
+          return m.dcantFields
+            .map(k => DCANT_FIELDS[k] ? DCANT_FIELDS[k].getter(e) : '')
+            .filter(v => v !== '')
+            .join(' | ');
         }
         return m.defaultValue || '';
       })
@@ -820,7 +857,7 @@ const Export = (() => {
     selectMode, selectFormat,
     toggleCol, downloadRapide,
     onDrop, onDragOver, onDragLeave, onFileChange,
-    analyzeTemplate, selectMapping, editorChangeMapping, editorSetDefault,
+    analyzeTemplate, selectMapping, editorToggleField, editorValidate, editorSetDefault,
     downloadTemplate,
     openHistory, closeHistory, deleteHistory,
     wizGo, autosize, toggleMic
