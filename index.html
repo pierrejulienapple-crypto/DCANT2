@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&family=Caveat:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-<link rel="stylesheet" href="css/app.css?v=23">
+<link rel="stylesheet" href="css/app.css?v=24">
 </head>
 <body>
 
@@ -628,7 +628,7 @@
 <script src="js/import-upload.js?v=15"></script>
 <script src="js/import-voice.js?v=16"></script>
 <script src="js/import.js?v=15"></script>
-<script src="js/export.js?v=23"></script>
+<script src="js/export.js?v=24"></script>
 <script src="js/calcul_ui.js?v=15"></script>
 <script src="js/ui.js?v=15"></script>
 <script src="js/app.js?v=15"></script>
@@ -716,7 +716,7 @@
         <div id="exportPanelTemplate" style="display:none;flex:1;display:flex;flex-direction:column">
           <div class="wiz-eyebrow">Mod&egrave;le externe</div>
           <div class="wiz-title" style="margin-bottom:4px">Importez votre mod&egrave;le</div>
-          <div class="wiz-subtitle" style="margin-bottom:16px">Glissez un fichier CSV ou Excel d'un autre logiciel.</div>
+          <div class="wiz-subtitle" style="margin-bottom:16px">Glissez un fichier d'un autre logiciel (CSV, Excel, PDF, image&hellip;)</div>
 
           <div class="import-dropzone" id="exportDropzone"
                ondrop="Export.onDrop(event)" ondragover="Export.onDragOver(event)"
@@ -726,12 +726,24 @@
             <span class="import-dropzone-or">ou</span>
             <label class="import-dropzone-browse">
               Parcourir
-              <input type="file" accept=".csv,.xlsx,.xls" hidden onchange="Export.onFileChange(event)">
+              <input type="file" hidden onchange="Export.onFileChange(event)">
             </label>
           </div>
 
           <div id="exportTemplateInfo" style="display:none;margin-top:12px">
             <div class="export-template-file" id="exportTemplateName"></div>
+          </div>
+
+          <div class="export-tpl-desc" id="exportTplDesc" style="display:none">
+            <div class="export-tpl-desc-label">D&eacute;crivez le mod&egrave;le (colonnes attendues, usage&hellip;)</div>
+            <div class="export-tpl-desc-bar">
+              <div class="wiz-chat-input-wrap" style="flex:1">
+                <textarea id="exportTplInput" class="wiz-chat-input" placeholder="Ex : le fichier a les colonnes Producteur, Cuv&eacute;e, AOC, Prix TTC, Code barre..." rows="2" oninput="Export.autosize(this)"></textarea>
+              </div>
+              <button class="wiz-chat-mic" id="exportTplMicBtn" onclick="Export.toggleMic()" title="Dicter">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              </button>
+            </div>
           </div>
 
           <div style="display:flex;gap:8px;justify-content:space-between;padding-top:16px;margin-top:auto">
