@@ -777,7 +777,10 @@
 
         <!-- Éditeur inline pour la colonne sélectionnée -->
         <div class="export-map-editor" id="exportMapEditor" style="display:none">
-          <div class="export-map-editor-title" id="exportMapEditorTitle"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div class="export-map-editor-title" id="exportMapEditorTitle"></div>
+            <button class="btn ghost sm" style="color:#c0392b;font-size:11px;padding:2px 8px" onclick="Export.removeColumn()">&#10005; Supprimer</button>
+          </div>
           <div class="export-map-editor-section">
             <label class="export-map-editor-label">Champs DCANT (cliquez pour s&eacute;lectionner)</label>
             <div class="export-col-pills export-map-field-pills" id="exportMapEditorFields"></div>

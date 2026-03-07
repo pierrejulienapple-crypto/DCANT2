@@ -2191,6 +2191,20 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   color: white;
 }
 
+.export-map-pill-add {
+  border: 1.5px dashed var(--dimmer);
+  color: var(--dimmer);
+  font-size: 18px;
+  font-weight: 400;
+  min-width: 38px;
+  padding: 4px 12px;
+  background: none;
+}
+.export-map-pill-add:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* Éditeur inline mapping */
 .export-map-editor {
   margin-top: 16px;
