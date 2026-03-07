@@ -9,18 +9,29 @@ export const config = {
   }
 };
 
+function b64urlDecode(str) {
+  // base64url → base64 standard, compatible tous Node.js
+  let b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  return Buffer.from(b64, 'base64');
+}
+
+function b64urlEncode(buf) {
+  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 function verifyJWT(token, secret) {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return { error: 'malformed' };
-    const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString());
-    if (header.alg !== 'HS256') return { error: 'bad_alg' };
-    const sig = crypto.createHmac('sha256', secret).update(parts[0] + '.' + parts[1]).digest('base64url');
+    const header = JSON.parse(b64urlDecode(parts[0]).toString());
+    if (header.alg !== 'HS256') return { error: 'bad_alg', found: header.alg };
+    const sig = b64urlEncode(crypto.createHmac('sha256', secret).update(parts[0] + '.' + parts[1]).digest());
     if (sig !== parts[2]) return { error: 'bad_signature' };
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+    const payload = JSON.parse(b64urlDecode(parts[1]).toString());
     if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return { error: 'expired', exp: payload.exp, now: Math.floor(Date.now() / 1000) };
     return { payload };
-  } catch (e) { return { error: 'parse_error' }; }
+  } catch (e) { return { error: 'parse_error', message: e.message }; }
 }
 
 export default async function handler(req, res) {
