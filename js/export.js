@@ -18,6 +18,7 @@ const Export = (() => {
   let _isSpreadsheet = true;
   let _exportHistory = [];
   let _scrollY = 0;
+  let _fromHistory = false;
 
   // ── Voice recording ──
   let _mediaRecorder = null;
@@ -166,6 +167,19 @@ const Export = (() => {
     _wizCur = n;
     _wizUpdateProgress(n);
     setTimeout(() => nextCard.scrollTop = 0, 10);
+
+    // Update back buttons when coming from history
+    if ((n === 2 || n === 3) && _fromHistory) {
+      const btn = nextCard.querySelector('.wiz-btn-back');
+      if (btn) {
+        btn.textContent = '\u2190 Retour';
+        btn.onclick = function() { _fromHistory = false; wizGo(1); setTimeout(openHistory, 100); };
+      }
+    } else if (n === 3) {
+      const btn = nextCard.querySelector('.wiz-btn-back');
+      if (btn) { btn.textContent = '\u2190 Modifier'; btn.onclick = function() { wizGo(2); }; }
+    }
+    if (n === 1) _fromHistory = false;
   }
 
   function _wizUpdateProgress(n) {
@@ -876,6 +890,7 @@ const Export = (() => {
     }
 
     closeHistory();
+    _fromHistory = true;
 
     // Restore mode
     _mode = config.mode;
