@@ -9,6 +9,34 @@ const ImportVoice = (() => {
   let _audioChunks = [];
   let _recognition = null;
   let _isRecording = false;
+  let _transcTimer = null;
+
+  function _showTranscSpinner() {
+    const wrap = g('importInstrInput')?.closest('.wiz-chat-input-wrap');
+    if (!wrap) return;
+    wrap.style.position = 'relative';
+    let ov = g('importTranscSpinner');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'importTranscSpinner';
+      ov.className = 'transc-spinner-overlay';
+      wrap.appendChild(ov);
+    }
+    let sec = 0;
+    ov.innerHTML = '<span class="transc-spinner-dot"></span> Transcription en cours… <span class="transc-spinner-time">0s</span>';
+    ov.style.display = '';
+    _transcTimer = setInterval(() => {
+      sec++;
+      const t = ov.querySelector('.transc-spinner-time');
+      if (t) t.textContent = sec + 's';
+    }, 1000);
+  }
+
+  function _hideTranscSpinner() {
+    if (_transcTimer) { clearInterval(_transcTimer); _transcTimer = null; }
+    const ov = g('importTranscSpinner');
+    if (ov) ov.style.display = 'none';
+  }
 
   function isRecording() { return _isRecording; }
 
@@ -66,12 +94,12 @@ const ImportVoice = (() => {
           const blob = new Blob(_audioChunks, { type: mime });
           _audioChunks = [];
           _setUI(false);
+          _showTranscSpinner();
 
           const reader = new FileReader();
           reader.onloadend = async () => {
             const base64 = reader.result.split(',')[1];
             try {
-              toast('Transcription en cours…');
               const resp = await fetch('/api/whisper', {
                 method: 'POST',
                 headers: await authHeaders(),
@@ -87,6 +115,8 @@ const ImportVoice = (() => {
             } catch (err) {
               console.error('Whisper error:', err);
               toast('Erreur de transcription. Réessayez.');
+            } finally {
+              _hideTranscSpinner();
             }
           };
           reader.readAsDataURL(blob);
