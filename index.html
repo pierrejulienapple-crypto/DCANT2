@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&family=Caveat:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-<link rel="stylesheet" href="css/app.css?v=29">
+<link rel="stylesheet" href="css/app.css?v=30">
 </head>
 <body>
 
@@ -628,7 +628,7 @@
 <script src="js/import-upload.js?v=15"></script>
 <script src="js/import-voice.js?v=16"></script>
 <script src="js/import.js?v=17"></script>
-<script src="js/export.js?v=29"></script>
+<script src="js/export.js?v=30"></script>
 <script src="js/calcul_ui.js?v=15"></script>
 <script src="js/ui.js?v=15"></script>
 <script src="js/app.js?v=15"></script>
@@ -675,12 +675,13 @@
             </div>
             <svg class="export-mode-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
-        </div>
-
-        <div style="text-align:center;margin-top:20px">
-          <button class="export-hist-btn" onclick="Export.openHistory()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Historique
+          <button class="export-mode-btn" onclick="Export.openHistory()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <div class="export-mode-text">
+              <span class="export-mode-label">Historique</span>
+              <span class="export-mode-sub">Utiliser un mod&egrave;le d&eacute;j&agrave; utilis&eacute;</span>
+            </div>
+            <svg class="export-mode-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
         </div>
       </div>
