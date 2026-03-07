@@ -55,22 +55,30 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'model and messages required' });
     }
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: body.model,
-        max_tokens: body.max_tokens || 1000,
-        ...(body.system ? { system: body.system } : {}),
-        messages: body.messages
-      })
+    const payload = JSON.stringify({
+      model: body.model,
+      max_tokens: body.max_tokens || 1000,
+      ...(body.system ? { system: body.system } : {}),
+      messages: body.messages
     });
+    const hdrs = {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01'
+    };
 
-    const data = await response.text();
+    // Retry on 529 (overloaded) up to 3 times with backoff
+    let response, data;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST', headers: hdrs, body: payload
+      });
+      if (response.status !== 529) break;
+      const wait = (attempt + 1) * 2000; // 2s, 4s, 6s
+      await new Promise(r => setTimeout(r, wait));
+    }
+
+    data = await response.text();
 
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Access-Control-Allow-Origin', '*');

@@ -318,8 +318,8 @@ const Export = (() => {
       _renderInterpretation();
       wizGo(4);
 
-      // Fire-and-forget AI naming
-      _generateExportName();
+      // Fire-and-forget AI naming (delayed to avoid rate limit)
+      setTimeout(() => _generateExportName(), 2000);
 
     } catch (e) {
       console.error('Export instruction error:', e);
