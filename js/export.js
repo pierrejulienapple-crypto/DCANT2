@@ -22,6 +22,8 @@ const Export = (() => {
   };
   let _wizExInterval = null;
   let _scrollY = 0;
+  let _exportName = '';
+  let _exportHistory = [];
 
   const _FONT_PAIRS = {
     classic:  { display: "'Fraunces', serif",           body: "'DM Sans', sans-serif",  label: 'Classique' },
@@ -92,6 +94,9 @@ const Export = (() => {
     if (as) as.style.display = 'none';
     const pc = g('exportPreviewContainer');
     if (pc) pc.innerHTML = '';
+    const ri = g('exportRefineInput');
+    if (ri) ri.value = '';
+    _exportName = '';
     // Reset color pickers
     const cpBg = g('exportColorBg');
     const cpTxt = g('exportColorText');
@@ -313,6 +318,9 @@ const Export = (() => {
       _renderInterpretation();
       wizGo(4);
 
+      // Fire-and-forget AI naming
+      _generateExportName();
+
     } catch (e) {
       console.error('Export instruction error:', e);
       toast('Erreur : ' + (e.message || 'Réessayez.'));
@@ -358,7 +366,6 @@ const Export = (() => {
     if (resume) resume.textContent = _interpretation.resume || '';
 
     bubble.style.display = 'block';
-    _selectFormatPill('pdf');
   }
 
   function selectFormat(fmt) {
@@ -429,6 +436,7 @@ const Export = (() => {
     const csv = data.content[0].text.trim().replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
     _downloadBlob('\uFEFF' + csv, 'text/csv;charset=utf-8;', 'dcant_export.csv');
     toast(_exportRows.length + ' cuvée(s) exportée(s)');
+    _saveToHistory();
     close();
     setTimeout(() => Feedback.showBanner(5, 'historyContent'), 700);
   }
@@ -558,10 +566,182 @@ const Export = (() => {
           toast('Image téléchargée');
         }, 'image/jpeg', 0.95);
       }
+
+      // Save to history after successful download
+      _saveToHistory();
     } catch (e) {
       console.error('Download error:', e);
       toast('Erreur : ' + e.message);
     }
+  }
+
+  // ── REFINEMENT (Chat Card 5) ──
+  async function sendRefinement() {
+    const ta = g('exportRefineInput');
+    if (!ta) return;
+    const text = ta.value.trim();
+    if (!text || !_generatedHTML) return;
+
+    const spinner = g('exportRefineSpinner');
+    const btn = g('exportRefineBtn');
+    if (btn) btn.disabled = true;
+    if (spinner) spinner.style.display = 'flex';
+
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 4000,
+          system: 'Tu modifies du HTML existant selon une instruction. Conserve les CSS variables (--export-bg, --export-text, --export-accent, --export-font-display, --export-font-body). Retourne UNIQUEMENT le HTML modifié, sans balises ```, sans doctype. N\'invente JAMAIS de données vin.',
+          messages: [{ role: 'user', content: 'HTML actuel :\n' + _generatedHTML + '\n\nInstruction de modification : ' + text }]
+        })
+      });
+      if (!response.ok) throw new Error('API ' + response.status);
+      const data = await response.json();
+      _generatedHTML = data.content[0].text.trim()
+        .replace(/^```html?\s*/i, '').replace(/```\s*$/i, '').trim();
+      _renderPreview();
+      ta.value = '';
+      ta.style.height = 'auto';
+    } catch (e) {
+      console.error('Refinement error:', e);
+      toast('Erreur de modification : ' + (e.message || 'Réessayez.'));
+    }
+
+    if (spinner) spinner.style.display = 'none';
+    if (btn) btn.disabled = false;
+  }
+
+  // ── AI NAMING ──
+  async function _generateExportName() {
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 50,
+          messages: [{ role: 'user', content: 'Donne un nom court (3-5 mots, français) pour cet export vin. Instruction : "' + _instruction + '". Format : ' + _selectedFormat + '. Réponds UNIQUEMENT avec le nom, sans guillemets, sans ponctuation.' }]
+        })
+      });
+      if (!response.ok) throw new Error('API');
+      const data = await response.json();
+      _exportName = (data.content[0].text || '').trim().slice(0, 60);
+    } catch (e) {
+      _exportName = 'Export ' + new Date().toLocaleDateString('fr-FR');
+    }
+  }
+
+  // ── SAVE TO HISTORY ──
+  async function _saveToHistory() {
+    if (!App.user) return;
+    try {
+      await Storage.saveExportHistory(App.user.id, {
+        name: _exportName || 'Export ' + new Date().toLocaleDateString('fr-FR'),
+        instruction: _instruction,
+        interpretation: _interpretation,
+        selected_format: _selectedFormat,
+        template_custom: _templateCustom,
+        generated_html: _generatedHTML
+      });
+    } catch (e) {
+      console.warn('Save export history error:', e);
+    }
+  }
+
+  // ── EXPORT HISTORY ──
+  async function openHistory() {
+    const overlay = g('exportHistOverlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+
+    const body = g('exportHistBody');
+    if (body) body.innerHTML = '<div style="text-align:center;padding:24px;color:var(--dimmer)">Chargement...</div>';
+
+    if (App.user) {
+      _exportHistory = await Storage.getExportHistory(App.user.id);
+    } else {
+      _exportHistory = [];
+    }
+
+    _renderHistory();
+  }
+
+  function closeHistory() {
+    const overlay = g('exportHistOverlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function _renderHistory() {
+    const body = g('exportHistBody');
+    if (!body) return;
+
+    if (!_exportHistory.length) {
+      body.innerHTML = '<div class="export-hist-empty">Aucun export sauvegardé.</div>';
+      return;
+    }
+
+    body.innerHTML = _exportHistory.map((item, idx) => {
+      const date = new Date(item.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+      const instr = (item.instruction || '').length > 80 ? item.instruction.slice(0, 80) + '...' : item.instruction;
+      return '<div class="export-hist-item">' +
+        '<div class="export-hist-name">' + _esc(item.name) + '</div>' +
+        '<div class="export-hist-date">' + date + ' — ' + (item.selected_format || 'pdf').toUpperCase() + '</div>' +
+        '<div class="export-hist-instr">' + _esc(instr) + '</div>' +
+        '<div class="export-hist-actions">' +
+          '<button class="btn sm solid" onclick="Export.reuseHistory(' + idx + ')">Utiliser</button>' +
+          '<button class="btn sm danger" onclick="Export.deleteHistory(\'' + item.id + '\',' + idx + ')">Supprimer</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function reuseHistory(idx) {
+    const item = _exportHistory[idx];
+    if (!item) return;
+
+    _instruction = item.instruction || '';
+    _interpretation = item.interpretation || null;
+    _selectedFormat = item.selected_format || 'pdf';
+    _templateCustom = item.template_custom || { bgColor: '#ffffff', textColor: '#1a1a1a', accentColor: '#1a2744', fontPair: 'classic' };
+    _generatedHTML = item.generated_html || '';
+    _exportName = item.name || '';
+
+    // Update format pills
+    document.querySelectorAll('.export-fmt-pill').forEach(p =>
+      p.classList.toggle('active', p.dataset.fmt === _selectedFormat));
+
+    closeHistory();
+
+    if (_generatedHTML) {
+      _renderPreview();
+      // Update custom panel
+      const cpBg = g('exportColorBg');
+      const cpTxt = g('exportColorText');
+      const cpAcc = g('exportColorAccent');
+      if (cpBg) cpBg.value = _templateCustom.bgColor;
+      if (cpTxt) cpTxt.value = _templateCustom.textColor;
+      if (cpAcc) cpAcc.value = _templateCustom.accentColor;
+      document.querySelectorAll('.export-font-pill').forEach(p =>
+        p.classList.toggle('active', p.dataset.font === _templateCustom.fontPair));
+      wizGo(5);
+    } else if (_interpretation) {
+      _renderInterpretation();
+      wizGo(4);
+    } else {
+      const ta = g('exportInstrInput');
+      if (ta) ta.value = _instruction;
+      wizGo(3);
+    }
+  }
+
+  async function deleteHistory(id, idx) {
+    if (!confirm('Supprimer cet export de l\'historique ?')) return;
+    await Storage.deleteExportHistory(id);
+    _exportHistory.splice(idx, 1);
+    _renderHistory();
   }
 
   // ── Utilitaires ──
@@ -590,6 +770,8 @@ const Export = (() => {
     chatAutosize, toggleRecording, attachDocument, handleAttachFile, sendInstruction,
     selectFormat, editInstruction, generate,
     updateCustom, selectFontPair, download,
+    sendRefinement,
+    openHistory, closeHistory, reuseHistory, deleteHistory,
     wizGo
   };
 
