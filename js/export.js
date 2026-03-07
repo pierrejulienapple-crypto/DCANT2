@@ -516,7 +516,30 @@ const Export = (() => {
         '<span class="export-map-pill-icon">' + (mapped ? '&#10003;' : '&#9888;') + '</span> ' +
         label +
       '</button>';
-    }).join('');
+    }).join('') +
+    '<button class="export-map-pill export-map-pill-add" onclick="Export.addColumn()">+</button>';
+  }
+
+  function addColumn() {
+    const name = prompt('Nom de la nouvelle colonne :');
+    if (!name || !name.trim()) return;
+    _mappings.push({ templateCol: name.trim(), dcantFields: [], defaultValue: '', defaultPosition: null });
+    _templateHeaders.push(name.trim());
+    _renderMappings();
+    selectMapping(_mappings.length - 1);
+  }
+
+  function removeColumn() {
+    const idx = _selectedMappingIdx;
+    if (idx < 0 || !_mappings[idx]) return;
+    const name = _mappings[idx].templateCol;
+    _mappings.splice(idx, 1);
+    _templateHeaders = _templateHeaders.filter(h => h !== name);
+    _selectedMappingIdx = -1;
+    const editor = g('exportMapEditor');
+    if (editor) editor.style.display = 'none';
+    _renderMappings();
+    toast('Colonne \u00ab ' + name + ' \u00bb supprim\u00e9e');
   }
 
   function selectMapping(idx) {
@@ -1050,7 +1073,7 @@ const Export = (() => {
     selectMode, selectFormat,
     toggleCol, downloadRapide,
     clickDropzone, onDrop, onDragOver, onDragLeave, onFileChange,
-    analyzeTemplate, selectMapping, editorToggleField, editorValidate, editorSetDefault,
+    analyzeTemplate, selectMapping, editorToggleField, editorValidate, editorSetDefault, addColumn, removeColumn,
     downloadTemplate,
     openHistory, closeHistory, deleteHistory, toggleHistorySelect, deleteSelectedHistory, loadFromHistory,
     setDefaultPosition, closeDefaultPopup,
