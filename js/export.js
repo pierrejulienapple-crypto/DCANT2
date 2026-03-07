@@ -298,34 +298,31 @@ const Export = (() => {
         '{"filtre":"description du filtre ou tous","tri":"critère de tri ou aucun","mise_en_page":"type de document (tableau, carte des vins, tarif, visuel...)","colonnes":["col1","col2"],"contenu_genere":"descriptions ou titres générés, ou null","resume":"phrase résumant ce qui sera fait"}\n\n' +
         'N\'invente JAMAIS de données vin. Utilise uniquement les données fournies.';
 
-      // Retry client-side up to 2 extra times on 529
-      let response;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        response = await fetch('/api/ai', {
-          method: 'POST',
-          headers: await authHeaders(),
-          body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 800,
-            system: systemPrompt,
-            messages: [{ role: 'user', content: userContent }]
-          })
-        });
-        if (response.status !== 529) break;
-        await new Promise(r => setTimeout(r, (attempt + 1) * 4000));
-      }
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 800,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userContent }]
+        })
+      });
 
-      if (!response.ok) throw new Error('API ' + response.status);
+      if (!response.ok) {
+        if (response.status === 529) throw new Error('API surchargée, réessayez dans 30s');
+        throw new Error('API ' + response.status);
+      }
       const data = await response.json();
       const raw = data.content[0].text.trim()
         .replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
       _interpretation = JSON.parse(raw);
 
+      // Nom d'export généré localement (pas d'appel AI)
+      _exportName = _generateExportNameLocal();
+
       _renderInterpretation();
       wizGo(4);
-
-      // Fire-and-forget AI naming (delayed 5s to avoid rate limit)
-      setTimeout(() => _generateExportName(), 5000);
 
     } catch (e) {
       console.error('Export instruction error:', e);
@@ -421,28 +418,26 @@ const Export = (() => {
       '|Marge:' + r.marge_euros + '|Coeff:' + r.coeff + '|' + (r.commentaire || '')
     ).join('\n');
 
-    let response;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      response = await fetch('/api/ai', {
-        method: 'POST',
-        headers: await authHeaders(),
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 4000,
-          messages: [{ role: 'user', content:
-            'Génère un fichier CSV avec ces colonnes exactes : ' + (_interpretation.colonnes || []).join(', ') + '\n' +
-            'Séparateur : ";"\n' +
-            'Tri : ' + (_interpretation.tri || 'aucun') + '\n' +
-            'Filtre : ' + (_interpretation.filtre || 'tous') + '\n' +
-            'Données (' + _exportRows.length + ' lignes) :\n' + dataLines + '\n' +
-            'Retourne UNIQUEMENT le CSV, avec ligne d\'en-tête, rien d\'autre. N\'invente aucune donnée.'
-          }]
-        })
-      });
-      if (response.status !== 529) break;
-      await new Promise(r => setTimeout(r, (attempt + 1) * 4000));
+    const response = await fetch('/api/ai', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content:
+          'Génère un fichier CSV avec ces colonnes exactes : ' + (_interpretation.colonnes || []).join(', ') + '\n' +
+          'Séparateur : ";"\n' +
+          'Tri : ' + (_interpretation.tri || 'aucun') + '\n' +
+          'Filtre : ' + (_interpretation.filtre || 'tous') + '\n' +
+          'Données (' + _exportRows.length + ' lignes) :\n' + dataLines + '\n' +
+          'Retourne UNIQUEMENT le CSV, avec ligne d\'en-tête, rien d\'autre. N\'invente aucune donnée.'
+        }]
+      })
+    });
+    if (!response.ok) {
+      if (response.status === 529) throw new Error('API surchargée, réessayez dans 30s');
+      throw new Error('API ' + response.status);
     }
-    if (!response.ok) throw new Error('API ' + response.status);
     const data = await response.json();
     const csv = data.content[0].text.trim().replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
     _downloadBlob('\uFEFF' + csv, 'text/csv;charset=utf-8;', 'dcant_export.csv');
@@ -485,22 +480,20 @@ const Export = (() => {
       (_interpretation.contenu_genere ? 'Contenu additionnel : ' + _interpretation.contenu_genere + '\n' : '') +
       'Données (' + _exportRows.length + ' vins) :\n' + dataJson;
 
-    let response;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      response = await fetch('/api/ai', {
-        method: 'POST',
-        headers: await authHeaders(),
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 4000,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }]
-        })
-      });
-      if (response.status !== 529) break;
-      await new Promise(r => setTimeout(r, (attempt + 1) * 4000));
+    const response = await fetch('/api/ai', {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+    if (!response.ok) {
+      if (response.status === 529) throw new Error('API surchargée, réessayez dans 30s');
+      throw new Error('API ' + response.status);
     }
-    if (!response.ok) throw new Error('API ' + response.status);
     const data = await response.json();
     _generatedHTML = data.content[0].text.trim()
       .replace(/^```html?\s*/i, '').replace(/```\s*$/i, '').trim();
@@ -604,22 +597,20 @@ const Export = (() => {
     if (spinner) spinner.style.display = 'flex';
 
     try {
-      let response;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        response = await fetch('/api/ai', {
-          method: 'POST',
-          headers: await authHeaders(),
-          body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 4000,
-            system: 'Tu modifies du HTML existant selon une instruction. Conserve les CSS variables (--export-bg, --export-text, --export-accent, --export-font-display, --export-font-body). Retourne UNIQUEMENT le HTML modifié, sans balises ```, sans doctype. N\'invente JAMAIS de données vin.',
-            messages: [{ role: 'user', content: 'HTML actuel :\n' + _generatedHTML + '\n\nInstruction de modification : ' + text }]
-          })
-        });
-        if (response.status !== 529) break;
-        await new Promise(r => setTimeout(r, (attempt + 1) * 4000));
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 4000,
+          system: 'Tu modifies du HTML existant selon une instruction. Conserve les CSS variables (--export-bg, --export-text, --export-accent, --export-font-display, --export-font-body). Retourne UNIQUEMENT le HTML modifié, sans balises ```, sans doctype. N\'invente JAMAIS de données vin.',
+          messages: [{ role: 'user', content: 'HTML actuel :\n' + _generatedHTML + '\n\nInstruction de modification : ' + text }]
+        })
+      });
+      if (!response.ok) {
+        if (response.status === 529) throw new Error('API surchargée, réessayez dans 30s');
+        throw new Error('API ' + response.status);
       }
-      if (!response.ok) throw new Error('API ' + response.status);
       const data = await response.json();
       _generatedHTML = data.content[0].text.trim()
         .replace(/^```html?\s*/i, '').replace(/```\s*$/i, '').trim();
@@ -636,28 +627,12 @@ const Export = (() => {
   }
 
   // ── AI NAMING ──
-  async function _generateExportName() {
-    try {
-      let response;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        response = await fetch('/api/ai', {
-          method: 'POST',
-          headers: await authHeaders(),
-          body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 50,
-            messages: [{ role: 'user', content: 'Donne un nom court (3-5 mots, français) pour cet export vin. Instruction : "' + _instruction + '". Format : ' + _selectedFormat + '. Réponds UNIQUEMENT avec le nom, sans guillemets, sans ponctuation.' }]
-          })
-        });
-        if (response.status !== 529) break;
-        await new Promise(r => setTimeout(r, (attempt + 1) * 4000));
-      }
-      if (!response.ok) throw new Error('API');
-      const data = await response.json();
-      _exportName = (data.content[0].text || '').trim().slice(0, 60);
-    } catch (e) {
-      _exportName = 'Export ' + new Date().toLocaleDateString('fr-FR');
-    }
+  function _generateExportNameLocal() {
+    // Extrait un nom court depuis l'instruction (pas d'appel API)
+    const words = _instruction.replace(/[^\wàâäéèêëïîôùûüÿçœæ\s]/gi, '').trim().split(/\s+/);
+    const short = words.slice(0, 5).join(' ');
+    const fmt = _selectedFormat.toUpperCase();
+    return short ? short + ' (' + fmt + ')' : 'Export ' + fmt + ' ' + new Date().toLocaleDateString('fr-FR');
   }
 
   // ── SAVE TO HISTORY ──
