@@ -1,5 +1,3 @@
-import crypto from 'crypto';
-
 export const config = {
   maxDuration: 30,
   api: {
@@ -9,28 +7,18 @@ export const config = {
   }
 };
 
-function b64urlDecode(str) {
-  let b64 = str.replace(/-/g, '+').replace(/_/g, '/');
-  while (b64.length % 4) b64 += '=';
-  return Buffer.from(b64, 'base64');
-}
+async function verifySupabaseToken(token) {
+  const supabaseUrl = process.env.SUPABASE_URL || 'https://cwpmlsmgckxooqtbwbpd.supabase.co';
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3cG1sc21nY2t4b29xdGJ3YnBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MDM4NjgsImV4cCI6MjA4ODI3OTg2OH0.h0Rcfc5ISk7MRYzcS9YL6Uy-8sdJxvYpTnpCZheGZFs';
+  if (!supabaseKey) return true;
 
-function b64urlEncode(buf) {
-  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function verifyJWT(token, secret) {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const header = JSON.parse(b64urlDecode(parts[0]).toString());
-    if (header.alg !== 'HS256') return null;
-    const sig = b64urlEncode(crypto.createHmac('sha256', secret).update(parts[0] + '.' + parts[1]).digest());
-    if (sig !== parts[2]) return null;
-    const payload = JSON.parse(b64urlDecode(parts[1]).toString());
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
-    return payload;
-  } catch (e) { return null; }
+  const resp = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'apikey': supabaseKey
+    }
+  });
+  return resp.ok;
 }
 
 export default async function handler(req, res) {
@@ -45,17 +33,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Auth check
-  const jwtSecret = process.env.SUPABASE_JWT_SECRET;
-  if (jwtSecret) {
-    const auth = req.headers.authorization;
-    if (!auth || !auth.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-    const payload = verifyJWT(auth.slice(7), jwtSecret);
-    if (!payload) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
+  // Auth check via Supabase API
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const tokenValid = await verifySupabaseToken(auth.slice(7));
+  if (!tokenValid) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
   }
 
   const apiKey = process.env.OPENAI_KEY;
