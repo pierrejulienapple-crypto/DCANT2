@@ -128,6 +128,12 @@ const Export = (() => {
     const tinput = g('exportTplInput');
     if (tinput) tinput.value = '';
 
+    // Reset filename inputs
+    const fnr = g('exportFileNameRapide');
+    if (fnr) fnr.value = '';
+    const fnt = g('exportFileNameTemplate');
+    if (fnt) fnt.value = '';
+
     // Reset mapping
     _selectedMappingIdx = -1;
     const ml = g('exportMappingList');
@@ -246,14 +252,16 @@ const Export = (() => {
       _selectedCols.map(k => DCANT_FIELDS[k].getter(e))
     );
 
+    const fname = (g('exportFileNameRapide')?.value || '').trim() || 'dcant_export';
+
     if (_selectedFormat === 'excel') {
-      _downloadExcel(headers, rows, 'dcant_export.xlsx');
+      _downloadExcel(headers, rows, fname + '.xlsx');
     } else {
-      _downloadCSV(headers, rows, 'dcant_export.csv');
+      _downloadCSV(headers, rows, fname + '.csv');
     }
 
     toast(sorted.length + ' cuvée(s) exportée(s)');
-    _saveToHistory('Export rapide');
+    _saveToHistory(fname);
     close();
     setTimeout(() => Feedback.showBanner(5, 'historyContent'), 700);
   }
@@ -264,6 +272,11 @@ const Export = (() => {
     const pt = g('exportPanelTemplate');
     if (pr) pr.style.display = 'none';
     if (pt) pt.style.display = 'flex';
+  }
+
+  function clickDropzone() {
+    const input = document.querySelector('#exportDropzone input[type="file"]');
+    if (input) input.click();
   }
 
   function onDragOver(e) {
@@ -300,6 +313,10 @@ const Export = (() => {
     if (nameEl) nameEl.textContent = file.name + ' (' + _formatSize(file.size) + ')';
     const info = g('exportTemplateInfo');
     if (info) info.style.display = '';
+
+    // Pré-remplir le nom de fichier
+    const fnInput = g('exportFileNameTemplate');
+    if (fnInput) fnInput.value = file.name.replace(/\.[^.]+$/, '');
   }
 
   function _formatSize(bytes) {
@@ -323,6 +340,7 @@ const Export = (() => {
 
   // ── Analyze template (1 appel IA) ──
   async function analyzeTemplate() {
+    if (_micRecording) _stopMic();
     const userDesc = (g('exportTplInput')?.value || '').trim();
 
     if (!_templateFile && !userDesc) {
@@ -444,7 +462,8 @@ const Export = (() => {
         return {
           templateCol: h,
           dcantFields: dcantField && DCANT_FIELDS[dcantField] ? [dcantField] : [],
-          defaultValue: ''
+          defaultValue: '',
+          defaultPosition: null
         };
       });
 
@@ -467,10 +486,17 @@ const Export = (() => {
   }
 
   function _mappingLabel(m) {
-    if (m.dcantFields && m.dcantFields.length > 0) {
-      return m.dcantFields.map(k => DCANT_FIELDS[k]?.label || k).join(', ');
+    const hasFields = m.dcantFields && m.dcantFields.length > 0;
+    const hasDefault = m.defaultValue && m.defaultValue.trim();
+    if (hasFields && hasDefault) {
+      const fields = m.dcantFields.map(k => DCANT_FIELDS[k]?.label || k).join(', ');
+      const dv = m.defaultValue.trim();
+      if (m.defaultPosition === 'before') return dv + ' + ' + fields;
+      if (m.defaultPosition === 'after') return fields + ' + ' + dv;
+      return fields;
     }
-    if (m.defaultValue && m.defaultValue.trim()) return m.defaultValue.trim();
+    if (hasFields) return m.dcantFields.map(k => DCANT_FIELDS[k]?.label || k).join(', ');
+    if (hasDefault) return m.defaultValue.trim();
     return null;
   }
 
@@ -549,8 +575,60 @@ const Export = (() => {
       toast('Sélectionnez un champ ou saisissez une valeur.');
       return;
     }
+
+    // Si les deux sont remplis → popup choix position
+    if (m.dcantFields && m.dcantFields.length > 0 && m.defaultValue && m.defaultValue.trim()) {
+      _showDefaultPopup(idx);
+      return;
+    }
+
+    _finishValidate(idx);
+  }
+
+  function _showDefaultPopup(idx) {
+    const m = _mappings[idx];
+    const dv = _esc(m.defaultValue.trim());
+    const fields = m.dcantFields.map(k => DCANT_FIELDS[k]?.label || k).join(', ');
+    let overlay = g('exportDefaultPopupOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'exportDefaultPopupOverlay';
+      overlay.className = 'export-default-popup-overlay';
+      document.body.appendChild(overlay);
+    }
+    overlay.innerHTML =
+      '<div class="export-default-popup">' +
+        '<div class="export-default-popup-title">Valeur par d\u00e9faut \u00ab ' + dv + ' \u00bb</div>' +
+        '<div class="export-default-popup-sub">O\u00f9 placer cette valeur par rapport \u00e0 <b>' + _esc(fields) + '</b> ?</div>' +
+        '<button class="btn solid sm" style="width:100%;margin-bottom:8px" onclick="Export.setDefaultPosition(\'before\')">Avant les champs DCANT</button>' +
+        '<button class="btn solid sm" style="width:100%;margin-bottom:8px" onclick="Export.setDefaultPosition(\'after\')">Apr\u00e8s les champs DCANT</button>' +
+        '<button class="btn sm danger" style="width:100%" onclick="Export.setDefaultPosition(\'replace\')">Remplacer les champs DCANT</button>' +
+      '</div>';
+    overlay.style.display = 'flex';
+  }
+
+  function setDefaultPosition(pos) {
+    const idx = _selectedMappingIdx;
+    if (idx < 0 || !_mappings[idx]) return;
+    const m = _mappings[idx];
+    if (pos === 'replace') {
+      m.dcantFields = [];
+      m.defaultPosition = null;
+    } else {
+      m.defaultPosition = pos;
+    }
+    closeDefaultPopup();
+    _finishValidate(idx);
+  }
+
+  function closeDefaultPopup() {
+    const ov = g('exportDefaultPopupOverlay');
+    if (ov) ov.style.display = 'none';
+  }
+
+  function _finishValidate(idx) {
+    const m = _mappings[idx];
     _renderMappings();
-    // Fermer l'éditeur et désélectionner
     const editor = g('exportMapEditor');
     if (editor) editor.style.display = 'none';
     _selectedMappingIdx = -1;
@@ -578,26 +656,32 @@ const Export = (() => {
     const headers = _mappings.map(m => m.templateCol);
     const rows = sorted.map(e =>
       _mappings.map(m => {
-        if (m.dcantFields && m.dcantFields.length > 0) {
-          return m.dcantFields
+        const hasFields = m.dcantFields && m.dcantFields.length > 0;
+        const dv = m.defaultValue || '';
+        if (hasFields) {
+          const fieldVal = m.dcantFields
             .map(k => DCANT_FIELDS[k] ? DCANT_FIELDS[k].getter(e) : '')
             .filter(v => v !== '')
             .join(' | ');
+          if (dv && m.defaultPosition === 'before') return dv + ' ' + fieldVal;
+          if (dv && m.defaultPosition === 'after') return fieldVal + ' ' + dv;
+          return fieldVal;
         }
-        return m.defaultValue || '';
+        return dv;
       })
     );
 
-    const name = 'dcant_' + (_templateFile?.name?.replace(/\.[^.]+$/, '') || 'export');
+    const defaultName = 'dcant_' + (_templateFile?.name?.replace(/\.[^.]+$/, '') || 'export');
+    const fname = (g('exportFileNameTemplate')?.value || '').trim() || defaultName;
 
     if (_selectedFormat === 'excel') {
-      _downloadExcel(headers, rows, name + '.xlsx');
+      _downloadExcel(headers, rows, fname + '.xlsx');
     } else {
-      _downloadCSV(headers, rows, name + '.csv');
+      _downloadCSV(headers, rows, fname + '.csv');
     }
 
     toast(sorted.length + ' cuvée(s) exportée(s)');
-    _saveToHistory('Export modèle — ' + (_templateFile?.name || ''));
+    _saveToHistory(fname);
     close();
     setTimeout(() => Feedback.showBanner(5, 'historyContent'), 700);
   }
@@ -654,7 +738,14 @@ const Export = (() => {
       await Storage.saveExportHistory(App.user.id, {
         name: name || 'Export ' + new Date().toLocaleDateString('fr-FR'),
         instruction: _mode === 'rapide' ? 'Colonnes: ' + _selectedCols.join(', ') : 'Modèle: ' + (_templateFile?.name || '?'),
-        interpretation: {},
+        interpretation: {
+          mode: _mode,
+          selectedCols: [..._selectedCols],
+          mappings: _mappings.map(m => ({ templateCol: m.templateCol, dcantFields: [...(m.dcantFields || [])], defaultValue: m.defaultValue || '', defaultPosition: m.defaultPosition || null })),
+          format: _selectedFormat,
+          templateHeaders: [..._templateHeaders],
+          filename: name
+        },
         selected_format: _selectedFormat,
         template_custom: {},
         generated_html: ''
@@ -668,6 +759,7 @@ const Export = (() => {
     const overlay = g('exportHistOverlay');
     if (!overlay) return;
     overlay.style.display = 'flex';
+    _histSelectedIds.clear();
 
     const body = g('exportHistBody');
     if (body) body.innerHTML = '<div style="text-align:center;padding:24px;color:var(--dimmer)">Chargement...</div>';
@@ -681,34 +773,117 @@ const Export = (() => {
     if (overlay) overlay.style.display = 'none';
   }
 
+  let _histSelectedIds = new Set();
+
   function _renderHistory() {
     const body = g('exportHistBody');
     if (!body) return;
 
     if (!_exportHistory.length) {
-      body.innerHTML = '<div class="export-hist-empty">Aucun export sauvegardé.</div>';
+      body.innerHTML = '<div class="export-hist-empty">Aucun export sauvegard\u00e9.</div>';
+      _updateHistDeleteBtn();
       return;
     }
 
     body.innerHTML = _exportHistory.map((item, idx) => {
       const date = new Date(item.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
       const instr = (item.instruction || '').length > 80 ? item.instruction.slice(0, 80) + '...' : item.instruction;
+      const hasConfig = item.interpretation && (item.interpretation.mode || item.interpretation.selectedCols);
+      const checked = _histSelectedIds.has(item.id) ? ' checked' : '';
       return '<div class="export-hist-item">' +
-        '<div class="export-hist-name">' + _esc(item.name) + '</div>' +
-        '<div class="export-hist-date">' + date + ' — ' + (item.selected_format || 'csv').toUpperCase() + '</div>' +
-        '<div class="export-hist-instr">' + _esc(instr) + '</div>' +
-        '<div class="export-hist-actions">' +
-          '<button class="btn sm danger" onclick="Export.deleteHistory(\'' + item.id + '\',' + idx + ')">Supprimer</button>' +
+        '<div class="export-hist-item-top">' +
+          '<input type="checkbox" class="export-hist-check"' + checked + ' onclick="event.stopPropagation();Export.toggleHistorySelect(\'' + item.id + '\')">' +
+          '<div class="export-hist-info" onclick="Export.loadFromHistory(' + idx + ')">' +
+            '<div class="export-hist-name">' + _esc(item.name) + '</div>' +
+            '<div class="export-hist-date">' + date + ' \u2014 ' + (item.selected_format || 'csv').toUpperCase() + '</div>' +
+            '<div class="export-hist-instr">' + _esc(instr) + '</div>' +
+          '</div>' +
+          (hasConfig ? '<button class="export-hist-use-btn" onclick="event.stopPropagation();Export.loadFromHistory(' + idx + ')">Utiliser</button>' : '') +
         '</div>' +
       '</div>';
     }).join('');
+
+    _updateHistDeleteBtn();
+  }
+
+  function _updateHistDeleteBtn() {
+    const hd = g('exportHistDeleteBatch');
+    if (!hd) return;
+    const n = _histSelectedIds.size;
+    if (n > 0) {
+      hd.style.display = '';
+      hd.textContent = 'Supprimer (' + n + ')';
+    } else {
+      hd.style.display = 'none';
+    }
+  }
+
+  function toggleHistorySelect(id) {
+    if (_histSelectedIds.has(id)) _histSelectedIds.delete(id);
+    else _histSelectedIds.add(id);
+    _updateHistDeleteBtn();
+  }
+
+  async function deleteSelectedHistory() {
+    const ids = [..._histSelectedIds];
+    if (!ids.length) return;
+    if (!confirm('Supprimer ' + ids.length + ' export(s) de l\'historique ?')) return;
+    await Storage.deleteExportHistoryBatch(ids);
+    _exportHistory = _exportHistory.filter(h => !_histSelectedIds.has(h.id));
+    _histSelectedIds.clear();
+    _renderHistory();
   }
 
   async function deleteHistory(id, idx) {
     if (!confirm('Supprimer cet export de l\'historique ?')) return;
     await Storage.deleteExportHistory(id);
     _exportHistory.splice(idx, 1);
+    _histSelectedIds.delete(id);
     _renderHistory();
+  }
+
+  function loadFromHistory(idx) {
+    const item = _exportHistory[idx];
+    if (!item) return;
+    const config = item.interpretation;
+    if (!config || !config.mode) {
+      toast('Pas de configuration r\u00e9utilisable.');
+      return;
+    }
+
+    closeHistory();
+
+    // Restore mode
+    _mode = config.mode;
+    _selectedFormat = config.format || 'csv';
+
+    // Update format pills
+    document.querySelectorAll('.export-fmt-pill').forEach(p =>
+      p.classList.toggle('active', p.dataset.fmt === _selectedFormat));
+
+    if (_mode === 'rapide') {
+      _selectedCols = config.selectedCols || ['domaine', 'cuvee', 'appellation', 'millesime', 'pvttc'];
+      _showRapidePanel();
+      wizGo(2);
+      // Set filename
+      const fnr = g('exportFileNameRapide');
+      if (fnr) fnr.value = config.filename || '';
+    } else {
+      _templateHeaders = config.templateHeaders || [];
+      _mappings = (config.mappings || []).map(m => ({
+        templateCol: m.templateCol,
+        dcantFields: m.dcantFields || [],
+        defaultValue: m.defaultValue || '',
+        defaultPosition: m.defaultPosition || null
+      }));
+      _renderMappings();
+      wizGo(3);
+      // Set filename
+      const fnt = g('exportFileNameTemplate');
+      if (fnt) fnt.value = config.filename || '';
+    }
+
+    toast('Configuration charg\u00e9e : ' + _esc(item.name));
   }
 
   // ── Voice recording (micro) ──
@@ -762,6 +937,10 @@ const Export = (() => {
       _stopMic();
       return;
     }
+    if (!App.user) {
+      toast('Connectez-vous pour utiliser le micro.');
+      return;
+    }
     // MediaRecorder + Whisper
     if (navigator.mediaDevices && typeof MediaRecorder !== 'undefined') {
       try {
@@ -786,7 +965,12 @@ const Export = (() => {
                 body: JSON.stringify({ audio: base64, mime })
               });
               const data = await resp.json();
-              if (!resp.ok) throw new Error(data.error || 'Erreur Whisper');
+              if (!resp.ok) {
+                const msg = resp.status === 401 ? 'Session expirée. Reconnectez-vous.'
+                  : resp.status >= 500 ? 'Serveur indisponible. Réessayez.'
+                  : data.error || 'Erreur de transcription.';
+                throw new Error(msg);
+              }
               const input = g('exportTplInput');
               if (input && data.text) {
                 const existing = input.value.trimEnd();
@@ -795,7 +979,7 @@ const Export = (() => {
               }
             } catch (err) {
               console.error('Whisper error:', err);
-              toast('Erreur de transcription. Réessayez.');
+              toast(err.message || 'Erreur de transcription. Réessayez.');
             } finally {
               _hideTranscSpinner();
             }
@@ -806,7 +990,15 @@ const Export = (() => {
         _setMicUI(true);
         return;
       } catch (err) {
-        console.warn('MediaRecorder fallback:', err);
+        console.warn('MediaRecorder error:', err);
+        if (err.name === 'NotAllowedError') {
+          toast('Autorisez l\'accès au micro dans votre navigateur.');
+          return;
+        }
+        if (err.name === 'NotFoundError') {
+          toast('Aucun micro détecté.');
+          return;
+        }
       }
     }
     // Fallback Web Speech
@@ -856,10 +1048,11 @@ const Export = (() => {
     open, close,
     selectMode, selectFormat,
     toggleCol, downloadRapide,
-    onDrop, onDragOver, onDragLeave, onFileChange,
+    clickDropzone, onDrop, onDragOver, onDragLeave, onFileChange,
     analyzeTemplate, selectMapping, editorToggleField, editorValidate, editorSetDefault,
     downloadTemplate,
-    openHistory, closeHistory, deleteHistory,
+    openHistory, closeHistory, deleteHistory, toggleHistorySelect, deleteSelectedHistory, loadFromHistory,
+    setDefaultPosition, closeDefaultPopup,
     wizGo, autosize, toggleMic
   };
 

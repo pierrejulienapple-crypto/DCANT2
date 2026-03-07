@@ -367,6 +367,12 @@ const Import = (() => {
     _refreshRow(id);
   }
 
+  function _commonPrefixLen(a, b) {
+    let i = 0;
+    while (i < a.length && i < b.length && a[i] === b[i]) i++;
+    return i;
+  }
+
   function _getSuggestions(field, currentVal) {
     const suggestions = [];
     const cv = String(currentVal);
@@ -409,6 +415,15 @@ const Import = (() => {
       if (edit.newVal && edit.newVal !== cv) {
         const sameEdits = _sessionEdits.filter(e => e.field === field && e.newVal === edit.newVal);
         if (sameEdits.length >= 2) suggestions.push(edit.newVal);
+      }
+
+      // Valeurs similaires : "CN22042180"→"Agricola VinB", "CN22042181" → suggérer "Agricola VinB"
+      // Si oldVal et cv ont une longueur proche (±2) et partagent 50%+ de préfixe commun
+      if (edit.oldVal !== edit.newVal && Math.abs(edit.oldVal.length - cv.length) <= 2 && cv.length >= 4) {
+        const pLen = _commonPrefixLen(edit.oldVal, cv);
+        if (pLen >= Math.floor(Math.min(edit.oldVal.length, cv.length) * 0.5)) {
+          suggestions.push(edit.newVal);
+        }
       }
     }
     // Dédupliquer et filtrer
