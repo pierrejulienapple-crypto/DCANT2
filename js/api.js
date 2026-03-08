@@ -53,13 +53,13 @@ OBJECTIF : Extraire tous les vins mentionnés avec leurs prix. Le document peut 
 Pour chaque vin trouvé, retourne :
 - domaine : nom du domaine/producteur
 - cuvee : nom de la cuvée (peut être vide)
-- appellation : appellation d'origine (AOC/AOP/IGP, ex: "Savigny-lès-Beaune 1er Cru", "Côtes du Rhône") — peut être vide
+- appellation : appellation d'origine (AOC/AOP/IGP, ex: "Savigny-lès-Beaune 1er Cru", "Côtes du Rhône", "Terre Siciliane"). IMPORTANT : remplis TOUJOURS ce champ si l'appellation est mentionnée quelque part dans le document (en-tête, bas de page, côté…). Si une seule appellation est mentionnée pour tout le document, applique-la à CHAQUE vin. Ne laisse PAS vide si l'info existe dans le document.
 - millesime : année (peut être vide)
 - prix : prix HT en nombre décimal (si plusieurs prix, prends le prix unitaire HT le plus probable)
 - confiance : score 0 à 1 pour chaque champ
 - alternatives : valeurs alternatives pour les champs incertains (confiance < 0.8)
-- appellation_match : "ok" si l'appellation correspond au référentiel, "unsure" si doute, "unknown" si absente du référentiel
-- appellation_suggestions : tableau des 3 appellations officielles les plus proches (si appellation_match est "unsure")${learningContext}${appellationContext}
+- appellation_match : "ok" si match exact avec le référentiel, "unsure" si doute (TOUJOURS fournir des suggestions dans ce cas), "unknown" si absente du référentiel
+- appellation_suggestions : tableau des 3 appellations officielles les plus proches du référentiel. OBLIGATOIRE si appellation_match est "unsure". Utile aussi pour "unknown".${learningContext}${appellationContext}
 
 IMPORTANT : Retourne TOUJOURS le JSON, même si tu n'es pas sûr. Mets des scores de confiance bas si nécessaire. Ne retourne une erreur que si le document ne contient ABSOLUMENT AUCUNE référence à du vin.
 

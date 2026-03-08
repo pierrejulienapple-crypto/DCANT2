@@ -208,14 +208,15 @@ const Import = (() => {
       const val = c[f] !== null && c[f] !== undefined ? c[f] : '';
       const altsJson = JSON.stringify(alts).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
 
-      // Appellation matching : statut bleu si unsure
-      const isUnsure = f === 'appellation' && c.appellation_match === 'unsure';
-      const appSugg = (f === 'appellation' && c.appellation_suggestions) ? c.appellation_suggestions : [];
+      // Appellation matching : statut bleu si unsure ou unknown avec suggestions
+      const isUnsure = f === 'appellation' && (c.appellation_match === 'unsure' || c.appellation_match === 'unknown');
+      const appSugg = (f === 'appellation' && c.appellation_suggestions && c.appellation_suggestions.length > 0)
+        ? c.appellation_suggestions : [];
       const appSuggJson = JSON.stringify(appSugg).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
 
       let cellClass = 'import-td-click';
       let dotHtml = '';
-      if (isUnsure) {
+      if (isUnsure && appSugg.length > 0) {
         cellClass += ' cell-unsure';
         dotHtml = '<span class="cell-unsure-dot">?</span>';
       } else if (uncertain) {
@@ -280,8 +281,8 @@ const Import = (() => {
     const currentVal = c[field] !== null ? String(c[field]) : '';
     let suggestions = _getSuggestions(field, currentVal);
 
-    // Pour les appellations unsure : ajouter les suggestions IA en priorité
-    if (field === 'appellation' && c.appellation_match === 'unsure') {
+    // Pour les appellations unsure/unknown : ajouter les suggestions IA en priorité
+    if (field === 'appellation' && (c.appellation_match === 'unsure' || c.appellation_match === 'unknown')) {
       const appSugg = JSON.parse(td.dataset.appSugg || '[]');
       if (appSugg.length > 0) {
         suggestions = appSugg.concat(suggestions).filter((v, i, a) => a.indexOf(v) === i);
@@ -372,8 +373,8 @@ const Import = (() => {
     const oldVal = c[field];
     c[field] = newVal;
 
-    // Si appellation corrigée, enlever le statut unsure
-    if (field === 'appellation' && c.appellation_match === 'unsure') {
+    // Si appellation corrigée, enlever le statut unsure/unknown
+    if (field === 'appellation' && (c.appellation_match === 'unsure' || c.appellation_match === 'unknown')) {
       c.appellation_match = 'ok';
     }
 
@@ -1411,6 +1412,25 @@ Instructions : "${text}"`;
     // Lance l'analyse puis va en étape 2
     const file = g('importFileInput')?.files[0];
     if (!file) return;
+
+    // Auth gate : si pas connecté, afficher écran connexion
+    if (!App.user) {
+      wizGo(2);
+      const tbody = g('importTbody');
+      const warning = g('importWarning');
+      const nbCuvees = g('importNbCuvees');
+      if (warning) warning.style.display = 'none';
+      if (nbCuvees) nbCuvees.textContent = '';
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="6" style="padding:40px 20px;text-align:center;">
+          <div style="font-size:15px;color:var(--dim);margin-bottom:16px;">Connectez-vous pour analyser votre document avec l'IA.</div>
+          <button class="btn solid" onclick="document.getElementById('authOverlay').classList.remove('hidden')" style="margin-bottom:10px;">Connectez-vous pour importer</button>
+          <br><button class="btn sm" onclick="Import.wizGo(1)" style="margin-top:6px;">← Retour</button>
+        </td></tr>`;
+      }
+      return;
+    }
+
     const btn = g('importAnalyzeBtn');
     btn.disabled = true;
     btn.textContent = 'Analyse en cours…';
