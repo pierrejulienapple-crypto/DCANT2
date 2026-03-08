@@ -13,17 +13,27 @@ async function callClaudeAPI(images, corrections, options) {
       corrections.map(c => `- "${c.original}" corrigé en "${c.corrected}" (champ: ${c.field})`).join('\n');
   }
 
-  // Référentiel d'appellations officielles pour le matching
+  // Référentiel d'appellations officielles pour le matching (compact — France uniquement)
   let appellationContext = '';
   if (typeof Appellations !== 'undefined' && Appellations.isReady()) {
-    const names = Appellations.getNames();
-    if (names.length > 0) {
-      appellationContext = `\n\nRÉFÉRENTIEL APPELLATIONS OFFICIELLES (${names.length} entrées) :\n` +
-        names.join('\n') +
-        `\n\nINSTRUCTION APPELLATION : Pour chaque vin, compare l'appellation lue sur le document avec ce référentiel.
-- Si tu trouves un match exact ou quasi-exact (accent, casse, abréviation) → utilise le nom officiel du référentiel et mets "appellation_match": "ok"
-- Si tu hésites entre plusieurs appellations ou que l'appellation lue ne correspond à rien dans le référentiel → mets "appellation_match": "unsure" et remplis "appellation_suggestions": [les 3 appellations les plus proches du référentiel]
-- Si l'appellation est clairement absente du référentiel (vin étranger rare, etc.) → mets "appellation_match": "unknown" et laisse "appellation_suggestions": []`;
+    const list = Appellations.getList();
+    // Filtrer : France uniquement pour limiter la taille du prompt (~536 noms vs 1916)
+    const frNames = list.filter(a => a.pays === 'France').map(a => a.nom);
+    if (frNames.length > 0) {
+      // Format compact : séparés par " | " au lieu de \n, avec cap de sécurité 20KB
+      let namesStr = frNames.join(' | ');
+      if (namesStr.length > 20000) {
+        namesStr = namesStr.substring(0, 20000);
+        // Couper au dernier séparateur complet
+        const lastSep = namesStr.lastIndexOf(' | ');
+        if (lastSep > 0) namesStr = namesStr.substring(0, lastSep);
+      }
+      appellationContext = `\n\nRÉFÉRENTIEL APPELLATIONS FR (${frNames.length} entrées, séparées par " | ") :\n` +
+        namesStr +
+        `\n\nINSTRUCTION APPELLATION : Compare l'appellation lue avec ce référentiel.
+- Match exact/quasi-exact (accent, casse, abréviation) → nom officiel + "appellation_match": "ok"
+- Hésitation ou pas dans le référentiel → "appellation_match": "unsure" + "appellation_suggestions": [3 plus proches]
+- Clairement absente (vin étranger, etc.) → "appellation_match": "unknown" + "appellation_suggestions": []`;
     }
   }
 
