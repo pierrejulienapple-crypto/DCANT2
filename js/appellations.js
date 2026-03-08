@@ -12,6 +12,7 @@ const Appellations = (() => {
   let _input = null;
   let _highlightIdx = -1;
   let _debounceTimer = null;
+  let _justSelected = false;
 
   // ── Normalisation accents ──
   function _norm(str) {
@@ -116,6 +117,7 @@ const Appellations = (() => {
   }
 
   function _onInput() {
+    if (_justSelected) { _justSelected = false; return; }
     clearTimeout(_debounceTimer);
     _debounceTimer = setTimeout(() => {
       const val = _input.value.trim();
@@ -211,6 +213,7 @@ const Appellations = (() => {
   }
 
   function _select(nom) {
+    _justSelected = true;
     _input.value = nom;
     _hide();
     // Trigger input event for Calcul_UI
