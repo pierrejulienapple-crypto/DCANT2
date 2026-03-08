@@ -57,9 +57,9 @@ OBJECTIF : Extraire tous les vins mentionnés avec leurs prix. Le document peut 
 Pour chaque vin trouvé, retourne :
 - domaine : nom du domaine/producteur
 - cuvee : nom de la cuvée (peut être vide)
-- appellation : appellation d'origine (AOC/AOP/IGP, ex: "Savigny-lès-Beaune 1er Cru", "Côtes du Rhône", "Terre Siciliane"). IMPORTANT : remplis TOUJOURS ce champ si l'appellation est mentionnée quelque part dans le document (en-tête, bas de page, côté…). Si une seule appellation est mentionnée pour tout le document, applique-la à CHAQUE vin. Ne laisse PAS vide si l'info existe dans le document.
+- appellation : appellation d'origine (AOC/AOP/IGP/DOC/DOCG, ex: "Savigny-lès-Beaune 1er Cru", "Côtes du Rhône", "Terre Siciliane"). RÈGLE ABSOLUE : remplis ce champ pour CHAQUE vin. Cherche l'appellation partout dans le document : en-tête, pied de page, colonne dédiée, mention globale, nom du producteur. Si UNE SEULE appellation est mentionnée dans tout le document (ex: "IGP Terre Siciliane" en haut de facture), applique-la à TOUS les vins. NE METS JAMAIS "" (vide) si une appellation existe quelque part dans le document. Mets-la dans "appellation" de chaque cuvée, PAS dans "avertissement".
 - millesime : année (peut être vide)
-- prix : prix HT en nombre décimal (si plusieurs prix, prends le prix unitaire HT le plus probable)
+- prix : prix HT UNITAIRE (par bouteille) en nombre décimal. ATTENTION VIRGULE DÉCIMALE : les documents européens utilisent la VIRGULE comme séparateur décimal (ex: "8,25" = 8.25 euros, PAS 825). Convertis TOUJOURS en nombre avec POINT décimal. Si plusieurs colonnes de prix existent (qté, prix unit., total), prends le PRIX UNITAIRE HT, pas le total de ligne. Si le prix semble > 500€ par bouteille, vérifie que tu n'as pas confondu virgule décimale et séparation de milliers.
 - confiance : score 0 à 1 pour chaque champ
 - alternatives : valeurs alternatives pour les champs incertains (confiance < 0.8)
 - appellation_match : "ok" si match exact avec le référentiel, "unsure" si doute (TOUJOURS fournir des suggestions dans ce cas), "unknown" si absente du référentiel
