@@ -2651,6 +2651,27 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 }
 
 /* ── BENCHMARK MARKET DATA (3 surfaces) ── */
+.benchmark-card {
+  background: #eef2f7;
+  border: 1px solid #c5d3e0;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-top: 16px;
+  text-align: center;
+}
+.benchmark-card-title {
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.benchmark-card .bm-val { color: var(--accent); font-weight: 500; }
+.benchmark-card .bm-count { display: block; margin-top: 6px; }
+.benchmark-card .bm-nodata { color: var(--accent); opacity: .6; }
 .benchmark-line { text-align: center; padding: 10px 0; }
 .bm-label { font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--dimmer); margin-right: 6px; }
 .bm-val { font-size: 13px; color: var(--dimmer); }

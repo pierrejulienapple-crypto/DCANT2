@@ -122,7 +122,7 @@ const Calcul_UI = (() => {
       if (!bmEl) {
         bmEl = document.createElement('div');
         bmEl.id = 'res-benchmark';
-        bmEl.className = 'benchmark-line';
+        bmEl.className = 'benchmark-card';
         var rb = document.querySelector('.results-box');
         if (rb && rb.parentNode) rb.parentNode.insertBefore(bmEl, rb.nextSibling);
       }
@@ -131,13 +131,13 @@ const Calcul_UI = (() => {
         var _mil = g('millesime')?.value?.trim();
         if (_app && _mil) {
           bmEl.style.display = 'block';
-          bmEl.innerHTML = '<span class="bm-label">March\u00e9</span> <span class="bm-loading"></span>';
+          bmEl.innerHTML = '<div class="benchmark-card-title">Benchmark</div><span class="bm-loading"></span>';
           Benchmark.fetchMarketData(_app, _mil).then(function(data) {
             if (!g('res-benchmark')) return;
             if (data) {
-              bmEl.innerHTML = '<span class="bm-label">March\u00e9</span> ' + Benchmark.renderMarketHTML(data);
+              bmEl.innerHTML = '<div class="benchmark-card-title">Benchmark</div>' + Benchmark.renderMarketHTML(data);
             } else {
-              bmEl.innerHTML = '<span class="bm-label">March\u00e9</span> <span class="bm-nodata">Pas encore de donn\u00e9es</span>';
+              bmEl.innerHTML = '<div class="benchmark-card-title">Benchmark</div><span class="bm-nodata">Pas encore de donn\u00e9es</span>';
             }
           });
         } else {
