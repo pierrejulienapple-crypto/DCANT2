@@ -2657,7 +2657,7 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   border-left: 3px solid var(--accent);
   border-radius: 8px;
   padding: 16px 20px;
-  margin-top: 16px;
+  margin: 16px 0 24px;
   text-align: center;
 }
 .benchmark-card-title {
@@ -2672,6 +2672,8 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 .benchmark-card .bm-val { color: var(--accent); font-weight: 500; }
 .benchmark-card .bm-count { display: block; margin-top: 6px; }
 .benchmark-card .bm-nodata { color: var(--accent); opacity: .6; }
+.bm-import-row { padding: 4px 0; font-size: 13px; }
+.bm-import-label { font-weight: 500; color: var(--accent); margin-right: 8px; }
 .benchmark-line { text-align: center; padding: 10px 0; }
 .bm-label { font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--dimmer); margin-right: 6px; }
 .bm-val { font-size: 13px; color: var(--dimmer); }

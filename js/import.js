@@ -1676,7 +1676,6 @@ Instructions : "${text}"`;
             <div class="rc-pvht-val">${fmt(c.pvht)} €</div>
             <div class="rc-pvht-ttc">${fmt(c.pvht * 1.2)} € TTC</div>
           </td>
-          <td class="rc-marche" id="rc-bm-${c.id}"><span class="bm-loading"></span></td>
           <td class="rc-action"><button class="res-save-arrow" onclick="Import.saveLineAndFade(${c.id})" title="Valider">${checkSvg}</button></td>
         </tr>`;
       } else {
@@ -1688,26 +1687,40 @@ Instructions : "${text}"`;
             ${sub ? `<div class="rc-sub">${sub}</div>` : ''}
           </td>
           <td class="rc-achat">${c.prix ? fmt(c.prix) + ' €' : '—'}</td>
-          <td colspan="3" class="rc-action-alt"><button class="btn sm" style="font-size:11px" onclick="Import.wizGo('3a');setTimeout(()=>{ const ta=g('importInstrInput'); if(ta) ta.value='Pour ${_esc((c.domaine||'').replace(/'/g,"\\'"))} : '; },300)">+ Instruction</button></td>
+          <td colspan="2" class="rc-action-alt"><button class="btn sm" style="font-size:11px" onclick="Import.wizGo('3a');setTimeout(()=>{ const ta=g('importInstrInput'); if(ta) ta.value='Pour ${_esc((c.domaine||'').replace(/'/g,"\\'"))} : '; },300)">+ Instruction</button></td>
         </tr>`;
       }
     }).join('');
 
-    // Benchmark batch (non-bloquant)
+    // Benchmark card (non-bloquant)
+    var _bmCard = document.getElementById('import-benchmark-card');
     var _bmPairs = _cuvees
       .filter(function(c) { return c.pvht !== null && !c.saved && c.appellation && c.millesime; })
-      .map(function(c) { return { appellation: c.appellation, millesime: c.millesime, id: c.id }; });
-    if (_bmPairs.length && typeof Benchmark !== 'undefined') {
+      .map(function(c) { return { appellation: c.appellation, millesime: c.millesime }; });
+    if (_bmPairs.length && _bmCard && typeof Benchmark !== 'undefined') {
+      _bmCard.style.display = 'block';
+      _bmCard.innerHTML = '<div class="benchmark-card-title">Benchmark</div><span class="bm-loading"></span>';
       Benchmark.fetchMarketDataBatch(_bmPairs).then(function(cache) {
+        var lines = [];
+        var seen = new Set();
         _bmPairs.forEach(function(p) {
-          var el = document.getElementById('rc-bm-' + p.id);
-          if (!el) return;
-          var data = cache.get(p.appellation + '|' + p.millesime);
-          el.innerHTML = data
-            ? '<div class="rc-bm-val">' + fmt(data.mediane_pvht) + ' \u20ac</div>'
-            : '<span class="bm-nodata">\u2014</span>';
+          var key = p.appellation + '|' + p.millesime;
+          if (seen.has(key)) return;
+          seen.add(key);
+          var data = cache.get(key);
+          if (data) {
+            lines.push('<div class="bm-import-row"><span class="bm-import-label">' + p.appellation + ' ' + p.millesime + '</span> ' + Benchmark.renderMarketHTML(data, true) + '</div>');
+          }
         });
+        if (lines.length) {
+          _bmCard.innerHTML = '<div class="benchmark-card-title">Benchmark</div>' + lines.join('');
+        } else {
+          _bmCard.innerHTML = '<div class="benchmark-card-title">Benchmark</div><span class="bm-nodata">Pas encore de donn\u00e9es</span>';
+        }
       });
+    } else if (_bmCard) {
+      _bmCard.style.display = _bmPairs.length ? 'block' : 'none';
+      if (_bmPairs.length) _bmCard.innerHTML = '<div class="benchmark-card-title">Benchmark</div><span class="bm-nodata">Pas encore de donn\u00e9es</span>';
     }
 
     // Miniature
