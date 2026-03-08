@@ -303,11 +303,45 @@ const Storage = (() => {
     }
   }
 
+  // ── BENCHMARK (vue: benchmark_public) ──
+
+  async function getBenchmark(appellation, millesime) {
+    try {
+      const { data, error } = await window.supabase
+        .from('benchmark_public')
+        .select('mediane_pvht, mediane_prix_achat, nb_contributeurs')
+        .eq('appellation', appellation)
+        .eq('millesime', millesime)
+        .single();
+      if (error) throw error;
+      return data || null;
+    } catch (e) {
+      console.warn('Storage.getBenchmark:', e);
+      return null;
+    }
+  }
+
+  async function getBenchmarkBatch(pairs) {
+    try {
+      const unique = [...new Map(pairs.map(p => [p.appellation + '|' + p.millesime, p])).values()];
+      const results = new Map();
+      await Promise.all(unique.map(async (p) => {
+        const d = await getBenchmark(p.appellation, p.millesime);
+        if (d) results.set(p.appellation + '|' + p.millesime, d);
+      }));
+      return results;
+    } catch (e) {
+      console.warn('Storage.getBenchmarkBatch:', e);
+      return new Map();
+    }
+  }
+
   return {
     getHistorique, saveCalcul, updateCalcul, deleteCalcul,
     getModeles, saveModele, deleteModele,
     saveFeedback, getFeedback, feedbackDoneRemote,
     getExportHistory, saveExportHistory, deleteExportHistory, deleteExportHistoryBatch,
+    getBenchmark, getBenchmarkBatch,
     Local
   };
 

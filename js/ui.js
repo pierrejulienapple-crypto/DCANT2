@@ -518,6 +518,21 @@ const UI = (() => {
       exp.style.display = 'block';
       if (chev) chev.classList.add('open');
       _expandedId = id;
+      // Benchmark async (non-bloquant)
+      if (e.appellation && e.millesime) {
+        Benchmark.fetchMarketData(e.appellation, e.millesime).then(function(data) {
+          var el = g('ebm-' + e.id);
+          if (!el) return;
+          if (data) {
+            el.innerHTML = '<div class="bm-label">BENCHMARK MARCH\u00c9</div>' +
+              '<div>PV m\u00e9dian : ' + fmt(data.mediane_pvht) + ' \u20ac HT</div>' +
+              (data.mediane_prix_achat !== null ? '<div>PA m\u00e9dian : ' + fmt(data.mediane_prix_achat) + ' \u20ac HT</div>' : '') +
+              '<div class="bm-count">Bas\u00e9 sur ' + data.nb_contributeurs + ' professionnel' + (data.nb_contributeurs > 1 ? 's' : '') + '</div>';
+          } else {
+            el.innerHTML = '<div class="bm-label">BENCHMARK MARCH\u00c9</div><span class="bm-nodata">Pas encore de donn\u00e9es</span>';
+          }
+        });
+      }
     }
   }
 
@@ -535,6 +550,13 @@ const UI = (() => {
       <div class="exp-row bold"><span>Prix de revient</span><span>${fmt(e.cout_revient || e.prix_achat)} €</span></div>
     `;
 
+    const bmPlaceholder = (e.appellation && e.millesime)
+      ? `<div class="exp-benchmark" id="ebm-${e.id}">
+           <div class="bm-label">BENCHMARK MARCHÉ</div>
+           <span class="bm-loading"></span>
+         </div>`
+      : '';
+
     return `<div class="entry-expand-body">
       <div class="exp-section">
         ${chargesRows}
@@ -551,6 +573,7 @@ const UI = (() => {
           <span id="ecoeff-${e.id}">${Number(e.coeff).toFixed(2)}×</span>
         </div>
       </div>
+      ${bmPlaceholder}
       <div class="exp-foot">
         <button class="btn sm ghost" onclick="UI.askDeleteEntry('${e.id}')">Supprimer</button>
       </div>

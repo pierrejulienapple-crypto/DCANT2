@@ -2650,6 +2650,20 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   white-space: nowrap;
 }
 
+/* ── BENCHMARK MARKET DATA (3 surfaces) ── */
+.benchmark-line { text-align: center; padding: 10px 0; }
+.bm-label { font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--dimmer); margin-right: 6px; }
+.bm-val { font-size: 13px; color: var(--dimmer); }
+.bm-sep { color: var(--dimmer); font-size: 11px; }
+.bm-count { font-size: 11px; color: var(--dimmer); }
+.bm-nodata { font-size: 12px; color: var(--dimmer); font-style: italic; }
+.bm-loading { display: inline-block; width: 12px; height: 12px; border: 1.5px solid var(--border); border-top-color: var(--dimmer); border-radius: 50%; animation: bm-spin .6s linear infinite; }
+@keyframes bm-spin { to { transform: rotate(360deg); } }
+.exp-benchmark { text-align: center; padding: 8px 0; font-size: 12px; color: var(--dimmer); }
+.exp-benchmark .bm-label { display: block; margin-bottom: 4px; }
+.rc-marche { font-size: 12px; color: var(--dimmer); text-align: right; white-space: nowrap; }
+.rc-bm-val { font-size: 13px; color: var(--dimmer); }
+
 /* PWA standalone — safe area pour iOS (notch/Dynamic Island) */
 @supports (padding-top: env(safe-area-inset-top)) {
   header { padding-top: env(safe-area-inset-top); }

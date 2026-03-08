@@ -117,6 +117,26 @@ const Calcul_UI = (() => {
       s('res-euros', fmt(r.mE) + ' €');
       s('res-pct', r.pct.toFixed(1) + ' %');
       s('res-coeff', r.coeff.toFixed(2) + '×');
+      // Benchmark marché (non-bloquant)
+      var bmEl = g('res-benchmark');
+      if (bmEl) {
+        var _app = g('appellation')?.value?.trim();
+        var _mil = g('millesime')?.value?.trim();
+        if (_app && _mil) {
+          bmEl.style.display = 'block';
+          bmEl.innerHTML = '<span class="bm-label">March\u00e9</span> <span class="bm-loading"></span>';
+          Benchmark.fetchMarketData(_app, _mil).then(function(data) {
+            if (!g('res-benchmark')) return;
+            if (data) {
+              bmEl.innerHTML = '<span class="bm-label">March\u00e9</span> ' + Benchmark.renderMarketHTML(data);
+            } else {
+              bmEl.style.display = 'none';
+            }
+          });
+        } else {
+          bmEl.style.display = 'none';
+        }
+      }
     } else {
       _clearRes();
     }
@@ -136,6 +156,8 @@ const Calcul_UI = (() => {
 
   function _clearRes() {
     ['res-pvht', 'res-ttc', 'res-euros', 'res-pct', 'res-coeff'].forEach(id => s(id, '—'));
+    var bmEl = g('res-benchmark');
+    if (bmEl) bmEl.style.display = 'none';
   }
 
   // ── SAUVEGARDE ──

@@ -2,9 +2,14 @@
 // DCANT — Benchmark (page dédiée)
 // Consentement + compteur participants
 // Sync Supabase (par compte, pas par appareil)
+// Cache session + affichage médianes marché
 // ═══════════════════════════════════════════
 
 const Benchmark = (() => {
+
+  // ── Cache session pour les données marché ──
+  var _cache = new Map();        // clé "appellation|millesime" → objet ou null
+  var _isContributor = null;     // null = pas encore vérifié, true/false
 
   async function _loadCount() {
     var el = document.getElementById('benchmark-participants-count');
@@ -57,7 +62,66 @@ const Benchmark = (() => {
     } catch(e) { /* silently fail */ }
   }
 
-  // Rend le bloc consent dans un conteneur donné (top ou bottom)
+  // ── Statut contributeur (synchrone, basé sur localStorage déjà synced) ──
+  function _checkContributor() {
+    if (_isContributor !== null) return _isContributor;
+    if (!App.user) { _isContributor = false; return false; }
+    _isContributor = localStorage.getItem('dcant_benchmark_consent') === 'yes';
+    return _isContributor;
+  }
+
+  // ── Données marché pour une appellation+millésime ──
+  async function fetchMarketData(appellation, millesime) {
+    if (!appellation || !millesime) return null;
+    var key = appellation + '|' + millesime;
+    if (_cache.has(key)) return _cache.get(key);
+    var raw = await Storage.getBenchmark(appellation, millesime);
+    if (!raw) { _cache.set(key, null); return null; }
+    var isContrib = _checkContributor();
+    var result = {
+      mediane_pvht: raw.mediane_pvht,
+      mediane_prix_achat: isContrib ? raw.mediane_prix_achat : null,
+      nb_contributeurs: raw.nb_contributeurs
+    };
+    _cache.set(key, result);
+    return result;
+  }
+
+  // ── Batch fetch pour import (plusieurs cuvées d'un coup) ──
+  async function fetchMarketDataBatch(pairs) {
+    var missing = pairs.filter(function(p) {
+      return p.appellation && p.millesime && !_cache.has(p.appellation + '|' + p.millesime);
+    });
+    if (missing.length) {
+      var rawMap = await Storage.getBenchmarkBatch(missing);
+      var isContrib = _checkContributor();
+      rawMap.forEach(function(raw, key) {
+        _cache.set(key, {
+          mediane_pvht: raw.mediane_pvht,
+          mediane_prix_achat: isContrib ? raw.mediane_prix_achat : null,
+          nb_contributeurs: raw.nb_contributeurs
+        });
+      });
+      missing.forEach(function(p) {
+        var k = p.appellation + '|' + p.millesime;
+        if (!_cache.has(k)) _cache.set(k, null);
+      });
+    }
+    return _cache;
+  }
+
+  // ── Helper HTML pour afficher les médianes ──
+  function renderMarketHTML(data, compact) {
+    if (!data) return '<span class="bm-nodata">Pas encore de donn\u00e9es</span>';
+    var html = '<span class="bm-val">' + fmt(data.mediane_pvht) + ' \u20ac HT</span>';
+    if (!compact && data.mediane_prix_achat !== null) {
+      html += ' <span class="bm-sep">\u00b7</span> <span class="bm-val">achat ' + fmt(data.mediane_prix_achat) + ' \u20ac</span>';
+    }
+    html += ' <span class="bm-count">(' + data.nb_contributeurs + ' pro' + (data.nb_contributeurs > 1 ? 's' : '') + ')</span>';
+    return html;
+  }
+
+  // ── Consent UI — Rend le bloc consent dans un conteneur donné (top ou bottom) ──
   function _renderBlock(block, suffix) {
     var consent = localStorage.getItem('dcant_benchmark_consent');
 
@@ -70,6 +134,7 @@ const Benchmark = (() => {
         '</div>';
       document.getElementById('bm-leave-' + suffix).addEventListener('click', function() {
         localStorage.setItem('dcant_benchmark_consent', 'no');
+        _isContributor = false;
         _updateSupabaseConsent(false);
         _render();
         _loadCount();
@@ -81,6 +146,7 @@ const Benchmark = (() => {
         '<button id="bm-join-' + suffix + '" class="bm-join-btn">Je contribue</button>';
       document.getElementById('bm-join-' + suffix).addEventListener('click', function() {
         localStorage.setItem('dcant_benchmark_consent', 'yes');
+        _isContributor = true;
         _updateSupabaseConsent(true);
         _render();
         _loadCount();
@@ -95,6 +161,7 @@ const Benchmark = (() => {
         '</div>';
       document.getElementById('bm-join-' + suffix).addEventListener('click', function() {
         localStorage.setItem('dcant_benchmark_consent', 'yes');
+        _isContributor = true;
         _updateSupabaseConsent(true);
         _render();
         _loadCount();
@@ -114,10 +181,16 @@ const Benchmark = (() => {
   }
 
   async function init() {
+    _isContributor = null;
     await _syncConsent();
     _loadCount();
     _render();
   }
 
-  return { init: init };
+  return {
+    init: init,
+    fetchMarketData: fetchMarketData,
+    fetchMarketDataBatch: fetchMarketDataBatch,
+    renderMarketHTML: renderMarketHTML
+  };
 })();
