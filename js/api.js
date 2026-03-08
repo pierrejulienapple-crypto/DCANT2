@@ -94,14 +94,19 @@ Max 100 cuvées. Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin d
   });
 
   if (!response.ok) {
+    const detail = await response.text();
+    console.error('[API] HTTP', response.status, detail);
     if (response.status === 401) {
-      const detail = await response.text();
       let reason = '';
-      try { reason = ' (' + JSON.parse(detail).reason + ')'; } catch(e) {}
-      throw new Error('Session expirée' + reason + '. Déconnectez-vous et reconnectez-vous.');
+      try {
+        const j = JSON.parse(detail);
+        reason = j.reason || j.error || j.message || detail.substring(0, 100);
+      } catch(e) {
+        reason = detail.substring(0, 100);
+      }
+      throw new Error('Erreur auth (401): ' + reason);
     }
-    const err = await response.text();
-    throw new Error('Erreur API: ' + err);
+    throw new Error('Erreur API ' + response.status + ': ' + detail.substring(0, 200));
   }
 
   const data = await response.json();
