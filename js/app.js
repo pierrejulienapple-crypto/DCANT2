@@ -5,8 +5,7 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
   _initSupabase();
-  _initClarity();
-  _initCookieBanner();
+  _initCookieConsent();
   PWA.init();
 
   // Charger les appellations en mémoire + autocomplete
@@ -63,8 +62,32 @@ function _initSupabase() {
   }
 }
 
-function _initClarity() {
-  const id = DCANT_CONFIG.clarity.id;
+// ── Cookies & Clarity conditionnel (RGPD) ──
+function _initCookieConsent() {
+  var consent = localStorage.getItem('dcant_cookies');
+  if (!consent) {
+    var banner = document.getElementById('cookie-banner');
+    if (banner) banner.style.display = 'flex';
+  }
+  if (consent === 'accepted') _loadClarity();
+
+  var btnA = document.getElementById('cookie-accept');
+  var btnR = document.getElementById('cookie-refuse');
+  if (btnA) btnA.addEventListener('click', function() {
+    localStorage.setItem('dcant_cookies', 'accepted');
+    document.getElementById('cookie-banner').style.display = 'none';
+    _loadClarity();
+  });
+  if (btnR) btnR.addEventListener('click', function() {
+    localStorage.setItem('dcant_cookies', 'refused');
+    document.getElementById('cookie-banner').style.display = 'none';
+  });
+}
+
+function _loadClarity() {
+  if (window._clarityLoaded) return;
+  window._clarityLoaded = true;
+  var id = DCANT_CONFIG.clarity.id;
   if (!id || id.includes('COLLER')) return;
   try {
     (function(c,l,a,r,i,t,y){
@@ -75,11 +98,44 @@ function _initClarity() {
   } catch(e) {}
 }
 
-function _initCookieBanner() {
-  if (Storage.Local.cookiesAccepted()) {
-    document.getElementById('cookieBar')?.classList.add('hidden');
+// ── Benchmark consent wrapper (RGPD) ──
+// Wrap Import.saveAll pour injecter source='import' + consentement benchmark
+// sans modifier import.js
+(function() {
+  var _origSaveAll;
+  function _wrapSaveAll() {
+    if (typeof Import === 'undefined' || !Import.saveAll) return;
+    if (_origSaveAll) return; // déjà wrappé
+    _origSaveAll = Import.saveAll;
+    Import.saveAll = async function() {
+      // Demander le consentement benchmark une seule fois par appareil
+      var consent = localStorage.getItem('dcant_benchmark_consent');
+      if (consent === null) {
+        consent = await _checkBenchmarkConsent();
+      } else {
+        consent = consent === 'true';
+      }
+      // Injecter source + partage_benchmark dans les futures insertions
+      var origSaveCalcul = Storage.saveCalcul;
+      Storage.saveCalcul = function(userId, entry) {
+        entry.source = 'import';
+        entry.partage_benchmark = consent;
+        return origSaveCalcul(userId, entry);
+      };
+      try {
+        await _origSaveAll.call(Import);
+      } finally {
+        Storage.saveCalcul = origSaveCalcul;
+      }
+    };
   }
-}
+  // Wrapper dès que le DOM est prêt (Import est déjà chargé à ce stade)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _wrapSaveAll);
+  } else {
+    _wrapSaveAll();
+  }
+})();
 
 // ═══ PWA ═══
 if ('serviceWorker' in navigator) {

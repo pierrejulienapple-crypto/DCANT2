@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&family=Caveat:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-<link rel="stylesheet" href="css/app.css?v=34">
+<link rel="stylesheet" href="css/app.css?v=35">
 </head>
 <body>
 
@@ -609,22 +609,39 @@
   </div>
 </div>
 
-<!-- COOKIE BANNER -->
-<div class="cookie-bar" id="cookieBar">
-  <span>Ce site utilise des cookies.</span>
-  <button class="cookie-ok" onclick="acceptCookies()">OK</button>
+<!-- COOKIE BANNER (RGPD) -->
+<div id="cookie-banner" class="cookie-banner" style="display:none">
+  <p>Nous utilisons des cookies analytiques (Microsoft Clarity) pour am&eacute;liorer l'application.</p>
+  <div class="cookie-actions">
+    <button id="cookie-accept" class="btn-cookie-accept">Accepter</button>
+    <button id="cookie-refuse" class="btn-cookie-refuse">Refuser</button>
+  </div>
+</div>
+
+<!-- BENCHMARK CONSENT MODAL (RGPD) -->
+<div class="bm-overlay" id="benchmarkOverlay" style="display:none">
+  <div class="bm-box">
+    <div class="bm-title">Rejoindre le r&eacute;seau DCANT</div>
+    <p class="bm-desc">Vos prix d'achat import&eacute;s peuvent &ecirc;tre partag&eacute;s de fa&ccedil;on <strong>totalement anonyme</strong> pour alimenter un benchmark collectif au b&eacute;n&eacute;fice de tous les utilisateurs.</p>
+    <p class="bm-desc bm-detail">Aucune donn&eacute;e personnelle n'est associ&eacute;e. Vous pouvez changer d'avis &agrave; tout moment.</p>
+    <div class="bm-actions">
+      <button class="btn solid" id="benchmarkAccept">Oui, je participe</button>
+      <button class="btn ghost" id="benchmarkRefuse">Non merci</button>
+    </div>
+    <a class="bm-link" href="/privacy.html" target="_blank">Politique de confidentialit&eacute;</a>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <!-- Scripts — ordre important -->
 <script src="js/config.js?v=15"></script>
-<script src="js/state.js?v=18"></script>
+<script src="js/state.js?v=19"></script>
 <script src="js/api.js?v=25"></script>
 <script src="js/calcul.js?v=15"></script>
 <script src="js/auth.js?v=15"></script>
 <script src="js/appellations.js?v=5"></script>
-<script src="js/storage.js?v=20"></script>
+<script src="js/storage.js?v=21"></script>
 <script src="js/feedback.js?v=15"></script>
 <script src="js/import-upload.js?v=15"></script>
 <script src="js/import-voice.js?v=16"></script>
@@ -632,7 +649,7 @@
 <script src="js/export.js?v=31"></script>
 <script src="js/calcul_ui.js?v=15"></script>
 <script src="js/ui.js?v=15"></script>
-<script src="js/app.js?v=17"></script>
+<script src="js/app.js?v=18"></script>
 
 <!-- EXPORT WIZARD — PLEIN ÉCRAN 3 CARTES -->
 <div class="import-overlay" id="exportOverlay">
@@ -830,6 +847,14 @@
     </div>
   </div>
 </div>
+
+<footer class="app-footer">
+  <a href="/privacy.html" target="_blank">Confidentialit&eacute;</a>
+  <span class="app-footer-sep">&middot;</span>
+  <a href="/cgu.html" target="_blank">CGU</a>
+  <span class="app-footer-sep">&middot;</span>
+  <span>&copy; DCANT 2026</span>
+</footer>
 
 </body>
 </html>
