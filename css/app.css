@@ -1171,6 +1171,27 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   pointer-events: none;
 }
 
+/* Cellule appellation incertaine (bleue) */
+.cell-unsure {
+  background: rgba(52, 152, 219, .10) !important;
+  color: #2980b9;
+}
+.cell-unsure-dot {
+  font-size: 10px;
+  font-weight: 700;
+  color: #2980b9;
+  background: rgba(52, 152, 219, .18);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  vertical-align: middle;
+  pointer-events: none;
+}
+
 /* Colonne PV HT */
 .import-pvht { font-weight: 600; color: var(--accent); font-size: 14px; }
 .import-pvht-empty { color: var(--dimmer); }

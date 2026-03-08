@@ -13,6 +13,20 @@ async function callClaudeAPI(images, corrections, options) {
       corrections.map(c => `- "${c.original}" corrigé en "${c.corrected}" (champ: ${c.field})`).join('\n');
   }
 
+  // Référentiel d'appellations officielles pour le matching
+  let appellationContext = '';
+  if (typeof Appellations !== 'undefined' && Appellations.isReady()) {
+    const names = Appellations.getNames();
+    if (names.length > 0) {
+      appellationContext = `\n\nRÉFÉRENTIEL APPELLATIONS OFFICIELLES (${names.length} entrées) :\n` +
+        names.join('\n') +
+        `\n\nINSTRUCTION APPELLATION : Pour chaque vin, compare l'appellation lue sur le document avec ce référentiel.
+- Si tu trouves un match exact ou quasi-exact (accent, casse, abréviation) → utilise le nom officiel du référentiel et mets "appellation_match": "ok"
+- Si tu hésites entre plusieurs appellations ou que l'appellation lue ne correspond à rien dans le référentiel → mets "appellation_match": "unsure" et remplis "appellation_suggestions": [les 3 appellations les plus proches du référentiel]
+- Si l'appellation est clairement absente du référentiel (vin étranger rare, etc.) → mets "appellation_match": "unknown" et laisse "appellation_suggestions": []`;
+    }
+  }
+
   // Instructions supplémentaires pour les photos de documents
   const photoContext = options.isPhoto ? `
 
@@ -41,12 +55,14 @@ Pour chaque vin trouvé, retourne :
 - millesime : année (peut être vide)
 - prix : prix HT en nombre décimal (si plusieurs prix, prends le prix unitaire HT le plus probable)
 - confiance : score 0 à 1 pour chaque champ
-- alternatives : valeurs alternatives pour les champs incertains (confiance < 0.8)${learningContext}
+- alternatives : valeurs alternatives pour les champs incertains (confiance < 0.8)
+- appellation_match : "ok" si l'appellation correspond au référentiel, "unsure" si doute, "unknown" si absente du référentiel
+- appellation_suggestions : tableau des 3 appellations officielles les plus proches (si appellation_match est "unsure")${learningContext}${appellationContext}
 
 IMPORTANT : Retourne TOUJOURS le JSON, même si tu n'es pas sûr. Mets des scores de confiance bas si nécessaire. Ne retourne une erreur que si le document ne contient ABSOLUMENT AUCUNE référence à du vin.
 
 Réponds UNIQUEMENT avec un JSON valide, sans texte ni markdown :
-{"cuvees": [{"domaine": "X", "cuvee": "", "appellation": "", "millesime": "", "prix": 0, "confiance": {"domaine": 0.9, "cuvee": 1, "appellation": 0.8, "millesime": 0.7, "prix": 0.95}, "alternatives": {}}], "nb_total": 1, "avertissement": null}
+{"cuvees": [{"domaine": "X", "cuvee": "", "appellation": "", "millesime": "", "prix": 0, "confiance": {"domaine": 0.9, "cuvee": 1, "appellation": 0.8, "millesime": 0.7, "prix": 0.95}, "alternatives": {}, "appellation_match": "ok", "appellation_suggestions": []}], "nb_total": 1, "avertissement": null}
 
 Max 100 cuvées. Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin détecté dans ce document."}`;
 
