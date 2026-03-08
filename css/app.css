@@ -1392,6 +1392,8 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 .benchmark-counter-number { font-family: var(--font-display); font-style: italic; font-size: 2.6rem; color: var(--white); line-height: 1; }
 .benchmark-counter-label { font-size: 13px; color: rgba(255,255,255,0.65); }
 
+.benchmark-cta-top { max-width: 640px; margin: 0 auto; padding: 24px 24px 0; }
+
 .benchmark-content { max-width: 640px; margin: 0 auto; padding: 0 24px 48px; }
 .benchmark-section { border-top: 1px solid var(--border); padding: 36px 0; }
 .benchmark-section-label { font-size: 10px; letter-spacing: .12em; color: var(--dimmer); margin-bottom: 10px; }

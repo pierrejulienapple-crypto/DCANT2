@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&family=Caveat:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-<link rel="stylesheet" href="css/app.css?v=36">
+<link rel="stylesheet" href="css/app.css?v=37">
 </head>
 <body>
 
@@ -220,7 +220,7 @@
       <h1 class="benchmark-title">Le r&eacute;seau DCANT</h1>
       <p class="benchmark-intro">
         Conna&icirc;tre le prix m&eacute;dian du march&eacute; pour chaque appellation, mill&eacute;sime par mill&eacute;sime.
-        Pas des prix th&eacute;oriques &mdash; des prix r&eacute;els, anonymis&eacute;s, partag&eacute;s par des cavistes comme vous.
+        Pas des prix th&eacute;oriques &mdash; des prix r&eacute;els, anonymis&eacute;s, partag&eacute;s par des professionnels du vin comme vous.
       </p>
       <div class="benchmark-counter-block">
         <span class="benchmark-counter-number" id="benchmark-participants-count">&mdash;</span>
@@ -229,13 +229,15 @@
     </div>
   </div>
 
+  <div class="benchmark-cta-top" id="benchmark-consent-top"></div>
+
   <div class="benchmark-content">
 
     <div class="benchmark-section">
       <div class="benchmark-section-label">CE QUE C'EST</div>
       <h2 class="benchmark-section-title">Un outil de veille collective</h2>
-      <p>Chaque fois qu'un caviste importe une facture dans DCANT, les prix d'achat sont &mdash; avec son accord &mdash; agr&eacute;g&eacute;s anonymement dans une base commune. Le r&eacute;sultat : des prix m&eacute;dians par appellation et mill&eacute;sime, visibles dans votre historique.</p>
-      <p>Votre identit&eacute; n'est jamais partag&eacute;e. Les autres cavistes voient uniquement des m&eacute;dianes. Personne ne voit les prix individuels de personne.</p>
+      <p>Chaque fois qu'un professionnel du vin importe une facture dans DCANT, les prix d'achat sont &mdash; avec son accord &mdash; agr&eacute;g&eacute;s anonymement dans une base commune. Le r&eacute;sultat : des prix m&eacute;dians par appellation et mill&eacute;sime, visibles dans votre historique.</p>
+      <p>Votre identit&eacute; n'est jamais partag&eacute;e. Les autres professionnels voient uniquement des m&eacute;dianes. Personne ne voit les prix individuels de personne.</p>
       <div class="benchmark-how-grid">
         <div class="benchmark-how-card">
           <div class="benchmark-how-icon">📥</div>
@@ -725,7 +727,7 @@
 <script src="js/export.js?v=31"></script>
 <script src="js/calcul_ui.js?v=15"></script>
 <script src="js/ui.js?v=16"></script>
-<script src="js/benchmark.js?v=1"></script>
+<script src="js/benchmark.js?v=2"></script>
 <script src="js/app.js?v=19"></script>
 
 <!-- EXPORT WIZARD — PLEIN ÉCRAN 3 CARTES -->
