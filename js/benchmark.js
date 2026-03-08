@@ -23,8 +23,9 @@ const Benchmark = (() => {
   }
 
   // ── Sync Supabase → localStorage au chargement ──
-  // Si l'utilisateur a rejoint le réseau sur un autre appareil,
-  // on synchronise son choix ici.
+  // Synchronise le consentement depuis Supabase (cross-device).
+  // Si l'utilisateur a rejoint OU s'est retiré sur un autre appareil,
+  // on met à jour localStorage ici.
   async function _syncConsent() {
     if (!App.user) return;
     try {
@@ -36,7 +37,11 @@ const Benchmark = (() => {
         .limit(1);
       if (error) throw error;
       if (data && data.length > 0) {
+        // L'utilisateur participe (rejoint sur un autre appareil)
         localStorage.setItem('dcant_benchmark_consent', 'yes');
+      } else if (localStorage.getItem('dcant_benchmark_consent') === 'yes') {
+        // localStorage dit "yes" mais Supabase dit non → retiré sur un autre appareil
+        localStorage.setItem('dcant_benchmark_consent', 'no');
       }
     } catch(e) { /* silently fail */ }
   }
