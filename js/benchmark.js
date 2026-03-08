@@ -73,7 +73,7 @@ const Benchmark = (() => {
     } else if (consent === 'no') {
       block.innerHTML =
         '<p>Vous ne participez pas au benchmark. Vous pouvez rejoindre le réseau à tout moment.</p>' +
-        '<button id="bm-join-' + suffix + '" class="bm-join-btn">Rejoindre le réseau</button>';
+        '<button id="bm-join-' + suffix + '" class="bm-join-btn">Je contribue</button>';
       document.getElementById('bm-join-' + suffix).addEventListener('click', function() {
         localStorage.setItem('dcant_benchmark_consent', 'yes');
         _updateSupabaseConsent(true);
@@ -85,7 +85,7 @@ const Benchmark = (() => {
       block.innerHTML =
         '<p>Partagez vos prix d\'achat anonymement et accédez aux médianes du marché. Entièrement facultatif, modifiable à tout moment.</p>' +
         '<div class="bm-actions">' +
-          '<button id="bm-join-' + suffix + '" class="bm-join-btn">Rejoindre le réseau</button>' +
+          '<button id="bm-join-' + suffix + '" class="bm-join-btn">Je contribue</button>' +
           '<button id="bm-decline-' + suffix + '" class="bm-decline-btn">Pas pour l\'instant</button>' +
         '</div>';
       document.getElementById('bm-join-' + suffix).addEventListener('click', function() {
