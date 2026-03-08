@@ -48,6 +48,7 @@ const Import = (() => {
     g('importOverlay').classList.add('open');
     _lockScroll();
     _reset();
+    _updateAuthGate();
   }
 
   function close() {
@@ -96,6 +97,36 @@ const Import = (() => {
   }
 
   // ── UPLOAD ──
+
+  function _updateAuthGate() {
+    const dropzone = g('importDropzone');
+    const analyzeBtn = g('importAnalyzeBtn');
+    const authGate = g('importAuthGate');
+
+    if (!App.user) {
+      // Masquer la dropzone, afficher le message auth
+      if (dropzone) dropzone.style.display = 'none';
+      if (analyzeBtn) analyzeBtn.style.display = 'none';
+
+      // Créer le gate si pas encore présent
+      if (!authGate) {
+        const gate = document.createElement('div');
+        gate.id = 'importAuthGate';
+        gate.style.cssText = 'padding:60px 20px;text-align:center;';
+        gate.innerHTML = `
+          <div style="font-size:15px;color:var(--dim);margin-bottom:20px;">Connectez-vous pour analyser votre document avec l'IA.</div>
+          <button class="btn solid" onclick="document.getElementById('authOverlay').classList.add('open')" style="margin-bottom:10px;">Connectez-vous pour importer</button>`;
+        dropzone?.parentNode?.insertBefore(gate, dropzone);
+      } else {
+        authGate.style.display = 'block';
+      }
+    } else {
+      // Connecté : restaurer la dropzone
+      if (dropzone) dropzone.style.display = '';
+      if (analyzeBtn) analyzeBtn.style.display = '';
+      if (authGate) authGate.style.display = 'none';
+    }
+  }
 
   function handleFile(file) {
     if (!file) return;
@@ -417,7 +448,12 @@ const Import = (() => {
     const cv = String(currentVal);
     for (const edit of _sessionEdits) {
       if (edit.field !== field) continue;
-      if (edit.oldVal === cv) continue; // c'est la même cellule déjà éditée
+      if (edit.oldVal === cv && cv.length > 0) continue; // skip si même valeur non-vide
+
+      // Pattern 0 — Dernière valeur utilisée dans la colonne → proposer pour cellules différentes
+      if (edit.newVal && edit.newVal !== cv) {
+        suggestions.push(edit.newVal);
+      }
 
       // Pattern 1 — Séparateur : "G23 – VINO BIANCO"→"G23" → pour "P22 – Perricone" suggérer "P22"
       // Détecte si l'edit a coupé à un séparateur ( – , - , / , : )
@@ -1445,21 +1481,9 @@ Instructions : "${text}"`;
     const file = g('importFileInput')?.files[0];
     if (!file) return;
 
-    // Auth gate : si pas connecté, afficher écran connexion
+    // Double-check auth (normalement bloqué dès étape 1)
     if (!App.user) {
-      wizGo(2);
-      const tbody = g('importTbody');
-      const warning = g('importWarning');
-      const nbCuvees = g('importNbCuvees');
-      if (warning) warning.style.display = 'none';
-      if (nbCuvees) nbCuvees.textContent = '';
-      if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="6" style="padding:40px 20px;text-align:center;">
-          <div style="font-size:15px;color:var(--dim);margin-bottom:16px;">Connectez-vous pour analyser votre document avec l'IA.</div>
-          <button class="btn solid" onclick="document.getElementById('authOverlay').classList.add('open')" style="margin-bottom:10px;">Connectez-vous pour importer</button>
-          <br><button class="btn sm" onclick="Import.wizGo(1)" style="margin-top:6px;">← Retour</button>
-        </td></tr>`;
-      }
+      document.getElementById('authOverlay').classList.add('open');
       return;
     }
 
@@ -1685,7 +1709,8 @@ Instructions : "${text}"`;
     wizChoose, wizGoMethod, wizFillEx,
     wizApplyDictee, wizApplyManuel,
     resetInstr,
-    restoreFromSession: _restoreFromSession
+    restoreFromSession: _restoreFromSession,
+    updateAuthGate: _updateAuthGate
   };
 
 })();

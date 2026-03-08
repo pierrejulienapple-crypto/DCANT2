@@ -28,8 +28,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       await UI.renderHistorique();
     }
     // Restaure l'import en cours si l'utilisateur vient de se connecter
-    if (user && typeof Import !== 'undefined' && Import.restoreFromSession) {
-      Import.restoreFromSession();
+    if (user && typeof Import !== 'undefined') {
+      if (Import.restoreFromSession) Import.restoreFromSession();
+      if (Import.updateAuthGate) Import.updateAuthGate();
     }
   });
 
