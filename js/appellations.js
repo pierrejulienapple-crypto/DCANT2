@@ -26,13 +26,22 @@ const Appellations = (() => {
 
   async function _load() {
     try {
-      const url = DCANT_CONFIG.supabase.url +
-        '/rest/v1/appellations?select=nom,pays,region,type&order=nom&limit=3000';
-      const resp = await fetch(url, {
-        headers: { 'apikey': DCANT_CONFIG.supabase.key }
-      });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      _list = await resp.json();
+      const base = DCANT_CONFIG.supabase.url +
+        '/rest/v1/appellations?select=nom,pays,region,type&order=nom';
+      const hdrs = { 'apikey': DCANT_CONFIG.supabase.key };
+
+      // Supabase limite à 1000 lignes par requête — paginer
+      const r1 = await fetch(base + '&limit=1000&offset=0', { headers: hdrs });
+      if (!r1.ok) throw new Error('HTTP ' + r1.status);
+      const page1 = await r1.json();
+
+      let page2 = [];
+      if (page1.length === 1000) {
+        const r2 = await fetch(base + '&limit=1000&offset=1000', { headers: hdrs });
+        if (r2.ok) page2 = await r2.json();
+      }
+
+      _list = page1.concat(page2);
       _ready = true;
       console.log('[Appellations] ' + _list.length + ' appellations chargées');
     } catch (e) {
