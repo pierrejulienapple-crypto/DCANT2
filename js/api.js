@@ -22,10 +22,14 @@ async function callClaudeAPI(images, corrections, options) {
       const namesStr = names.join(' | ');
       appellationContext = `\n\nRÉFÉRENTIEL APPELLATIONS OFFICIELLES (${names.length} entrées, séparées par " | ") :\n` +
         namesStr +
-        `\n\nINSTRUCTION APPELLATION : Compare l'appellation lue avec ce référentiel.
-- Match exact/quasi-exact (accent, casse, abréviation) → nom officiel + "appellation_match": "ok"
-- Hésitation ou pas dans le référentiel → "appellation_match": "unsure" + "appellation_suggestions": [3 plus proches]
-- Clairement absente → "appellation_match": "unknown" + "appellation_suggestions": []`;
+        `\n\nINSTRUCTION APPELLATION — CRITIQUE :
+1. Pour le champ "appellation", utilise TOUJOURS le NOM EXACT du référentiel ci-dessus, PAS le texte brut du document.
+   Exemple : le document dit "IGP Terre Siciliane Biologico" → le référentiel contient "Terre Siciliane" → mets "Terre Siciliane" (sans "IGP", sans "Biologico").
+   Exemple : le document dit "AOC Vouvray" → le référentiel contient "Vouvray" → mets "Vouvray".
+2. Ignore les préfixes (IGP, AOP, AOC, DOC, DOCG) et suffixes (Biologico, Bio, Superiore) pour le matching.
+3. Si match trouvé dans le référentiel → mets le nom officiel + "appellation_match": "ok"
+4. Si hésitation entre plusieurs → "appellation_match": "unsure" + "appellation_suggestions": [3 plus proches du référentiel]
+5. Si absente du référentiel → "appellation_match": "unknown" + "appellation_suggestions": [3 plus proches quand même]`;
     }
   }
 
