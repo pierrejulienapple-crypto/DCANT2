@@ -411,49 +411,73 @@ const Import = (() => {
       if (edit.field !== field) continue;
       if (edit.oldVal === cv) continue; // c'est la même cellule déjà éditée
 
-      // Suffixe supprimé : "G23 blanc"→"G23", suffixe=" blanc"
+      // Pattern 1 — Séparateur : "G23 – VINO BIANCO"→"G23" → pour "P22 – Perricone" suggérer "P22"
+      // Détecte si l'edit a coupé à un séparateur ( – , - , / , : )
+      const seps = [' – ', ' - ', ' / ', ' : ', ' — '];
+      for (const sep of seps) {
+        const sepIdx = edit.oldVal.indexOf(sep);
+        if (sepIdx > 0 && edit.newVal === edit.oldVal.substring(0, sepIdx).trim()) {
+          const cvSepIdx = cv.indexOf(sep);
+          if (cvSepIdx > 0) suggestions.push(cv.substring(0, cvSepIdx).trim());
+        }
+        // Inversement : gardé la partie après le séparateur
+        if (sepIdx > 0 && edit.newVal === edit.oldVal.substring(sepIdx + sep.length).trim()) {
+          const cvSepIdx = cv.indexOf(sep);
+          if (cvSepIdx > 0) suggestions.push(cv.substring(cvSepIdx + sep.length).trim());
+        }
+      }
+
+      // Pattern 2 — Suffixe supprimé : "G23 blanc"→"G23", suffixe=" blanc"
       if (edit.oldVal.startsWith(edit.newVal) && edit.newVal.length < edit.oldVal.length) {
         const suffix = edit.oldVal.slice(edit.newVal.length);
         if (cv.endsWith(suffix)) suggestions.push(cv.slice(0, -suffix.length));
       }
 
-      // Préfixe supprimé
+      // Pattern 3 — Préfixe supprimé
       if (edit.oldVal.endsWith(edit.newVal) && edit.newVal.length < edit.oldVal.length) {
         const prefix = edit.oldVal.slice(0, edit.oldVal.length - edit.newVal.length);
         if (cv.startsWith(prefix)) suggestions.push(cv.slice(prefix.length));
       }
 
-      // Dernier mot supprimé : "G23 blanc"→"G23"
+      // Pattern 4 — Dernier mot supprimé : "G23 blanc"→"G23"
       if (edit.oldVal.replace(/\s+\S+$/, '') === edit.newVal) {
         const s = cv.replace(/\s+\S+$/, '');
         if (s !== cv && s.length > 0) suggestions.push(s);
       }
 
-      // Premier mot supprimé
+      // Pattern 5 — Premier mot supprimé
       if (edit.oldVal.replace(/^\S+\s+/, '') === edit.newVal) {
         const s = cv.replace(/^\S+\s+/, '');
         if (s !== cv && s.length > 0) suggestions.push(s);
       }
 
-      // Remplacement exact : si oldVal se retrouve dans cv, proposer le remplacement
-      // Ex: edit "rouge"→"red", cv contient "rouge" → proposer avec "red"
+      // Pattern 6 — Remplacement de sous-chaîne
       if (edit.oldVal.length > 1 && cv.includes(edit.oldVal)) {
         suggestions.push(cv.replace(edit.oldVal, edit.newVal));
       }
 
-      // Valeur identique directe : si l'utilisateur a toujours mis la même newVal
-      // pour ce champ, proposer cette valeur
+      // Pattern 7 — Même valeur appliquée 2+ fois → proposer partout
       if (edit.newVal && edit.newVal !== cv) {
         const sameEdits = _sessionEdits.filter(e => e.field === field && e.newVal === edit.newVal);
         if (sameEdits.length >= 2) suggestions.push(edit.newVal);
       }
 
-      // Valeurs similaires : "CN22042180"→"Agricola VinB", "CN22042181" → suggérer "Agricola VinB"
-      // Si oldVal et cv ont une longueur proche (±2) et partagent 50%+ de préfixe commun
+      // Pattern 8 — Valeurs similaires (préfixe commun 50%+)
       if (edit.oldVal !== edit.newVal && Math.abs(edit.oldVal.length - cv.length) <= 2 && cv.length >= 4) {
         const pLen = _commonPrefixLen(edit.oldVal, cv);
         if (pLen >= Math.floor(Math.min(edit.oldVal.length, cv.length) * 0.5)) {
           suggestions.push(edit.newVal);
+        }
+      }
+
+      // Pattern 9 — Préfixe "IGP " ou "AOP " supprimé/ajouté
+      const prefixTags = ['IGP ', 'AOP ', 'AOC ', 'DOC ', 'DOCG '];
+      for (const tag of prefixTags) {
+        if (edit.oldVal.startsWith(tag) && edit.newVal === edit.oldVal.slice(tag.length)) {
+          if (cv.startsWith(tag)) suggestions.push(cv.slice(tag.length));
+        }
+        if (!edit.oldVal.startsWith(tag) && edit.newVal === tag + edit.oldVal) {
+          if (!cv.startsWith(tag)) suggestions.push(tag + cv);
         }
       }
     }

@@ -45,7 +45,7 @@ const Appellations = (() => {
   // ── Recherche en mémoire ──
   function search(query, limit) {
     limit = limit || 10;
-    if (!query || query.length < 2) return [];
+    if (!query || query.length < 1) return [];
     const q = _norm(query);
 
     const startsWith = [];
@@ -110,7 +110,7 @@ const Appellations = (() => {
     clearTimeout(_debounceTimer);
     _debounceTimer = setTimeout(() => {
       const val = _input.value.trim();
-      if (val.length < 2) {
+      if (val.length < 1) {
         _hide();
         return;
       }
@@ -121,7 +121,7 @@ const Appellations = (() => {
 
   function _onFocus() {
     const val = (_input.value || '').trim();
-    if (val.length >= 2) {
+    if (val.length >= 1) {
       clearTimeout(_debounceTimer);
       _debounceTimer = setTimeout(() => {
         const results = search(val);
