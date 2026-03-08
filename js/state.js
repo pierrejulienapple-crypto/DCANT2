@@ -57,11 +57,6 @@ function confirmCancel() {
   App.ui.confirmCallback = null;
 }
 
-function acceptCookies() {
-  Storage.Local.acceptCookies();
-  g('cookieBar').classList.add('hidden');
-}
-
 async function authHeaders() {
   const h = { 'Content-Type': 'application/json' };
   try {

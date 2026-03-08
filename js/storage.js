@@ -33,9 +33,7 @@ const Storage = (() => {
         return str.trim().toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
       };
 
-      const { data, error } = await window.supabase
-        .from('calculs')
-        .insert([{
+      const row = {
           user_id: userId,
           domaine: normaliseDomaine(entry.domaine),
           cuvee: entry.cuvee || '',
@@ -52,7 +50,14 @@ const Storage = (() => {
           marge_pct: entry.pct,
           coeff: entry.coeff,
           pvttc: entry.pvttc
-        }])
+      };
+      // RGPD — champs optionnels (source d'import + consentement benchmark)
+      if (entry.source) row.source = entry.source;
+      if (entry.partage_benchmark !== undefined) row.partage_benchmark = !!entry.partage_benchmark;
+
+      const { data, error } = await window.supabase
+        .from('calculs')
+        .insert([row])
         .select()
         .single();
       if (error) throw error;
@@ -211,8 +216,7 @@ const Storage = (() => {
   // Q2-Q5 vérifiés en Supabase (par compte)
 
   const Local = {
-    cookiesAccepted: () => localStorage.getItem('dc_cookies') === '1',
-    acceptCookies: () => localStorage.setItem('dc_cookies', '1'),
+    cookiesAccepted: () => localStorage.getItem('dcant_cookies') === 'accepted',
     feedbackDone: (n) => localStorage.getItem('dc_fbd_' + n) === '1',
     setFeedbackDone: (n) => localStorage.setItem('dc_fbd_' + n, '1')
   };

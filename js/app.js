@@ -5,8 +5,7 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
   _initSupabase();
-  _initClarity();
-  _initCookieBanner();
+  _initCookieConsent();
   PWA.init();
 
   // Charger les appellations en mémoire + autocomplete
@@ -63,23 +62,70 @@ function _initSupabase() {
   }
 }
 
-function _initClarity() {
-  const id = DCANT_CONFIG.clarity.id;
-  if (!id || id.includes('COLLER')) return;
+// ── Cookies & Clarity conditionnel (RGPD) ──
+function _initCookieConsent() {
+  var consent = localStorage.getItem('dcant_cookies');
+  if (!consent) {
+    var banner = document.getElementById('cookie-banner');
+    if (banner) banner.style.display = 'flex';
+  }
+  if (consent === 'accepted') _loadClarity();
+
+  var btnA = document.getElementById('cookie-accept');
+  var btnR = document.getElementById('cookie-refuse');
+  if (btnA) btnA.addEventListener('click', function() {
+    localStorage.setItem('dcant_cookies', 'accepted');
+    document.getElementById('cookie-banner').style.display = 'none';
+    _loadClarity();
+  });
+  if (btnR) btnR.addEventListener('click', function() {
+    localStorage.setItem('dcant_cookies', 'refused');
+    document.getElementById('cookie-banner').style.display = 'none';
+  });
+}
+
+function _loadClarity() {
+  if (window._clarityLoaded) return;
+  window._clarityLoaded = true;
   try {
     (function(c,l,a,r,i,t,y){
       c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
       t=l.createElement(r);t.async=1;t.src='https://www.clarity.ms/tag/'+i;
       y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window,document,'clarity','script',id);
+    })(window,document,'clarity','script','vm9i4i92ay');
   } catch(e) {}
 }
 
-function _initCookieBanner() {
-  if (Storage.Local.cookiesAccepted()) {
-    document.getElementById('cookieBar')?.classList.add('hidden');
+// ── Benchmark + source wrapper (RGPD) ──
+// Wrap Import.saveAll pour injecter source='import' + partage_benchmark
+// sans modifier import.js
+(function() {
+  var _origSaveAll;
+  function _wrapSaveAll() {
+    if (typeof Import === 'undefined' || !Import.saveAll) return;
+    if (_origSaveAll) return;
+    _origSaveAll = Import.saveAll;
+    Import.saveAll = async function() {
+      var consent = localStorage.getItem('dcant_benchmark_consent') === 'yes';
+      var origSaveCalcul = Storage.saveCalcul;
+      Storage.saveCalcul = function(userId, entry) {
+        entry.source = 'import';
+        entry.partage_benchmark = consent;
+        return origSaveCalcul(userId, entry);
+      };
+      try {
+        await _origSaveAll.call(Import);
+      } finally {
+        Storage.saveCalcul = origSaveCalcul;
+      }
+    };
   }
-}
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _wrapSaveAll);
+  } else {
+    _wrapSaveAll();
+  }
+})();
 
 // ═══ PWA ═══
 if ('serviceWorker' in navigator) {

@@ -9,12 +9,17 @@ const UI = (() => {
 
   function showPage(name) {
     App.currentPage = name;
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    g('page-' + name)?.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => {
+      p.classList.remove('active');
+      p.style.display = 'none';
+    });
+    var target = g('page-' + name);
+    if (target) { target.classList.add('active'); target.style.display = ''; }
     document.querySelectorAll('nav button').forEach((b, i) => {
       b.classList.toggle('active',
         (i === 0 && name === 'calcul') ||
-        (i === 1 && name === 'historique')
+        (i === 1 && name === 'historique') ||
+        (i === 2 && name === 'benchmark')
       );
     });
     if (name === 'historique') {
@@ -22,6 +27,9 @@ const UI = (() => {
       if (!Storage.Local.feedbackDone(4) && App.user) {
         setTimeout(() => Feedback.showBanner(4, 'historyContent'), 2000);
       }
+    }
+    if (name === 'benchmark' && typeof Benchmark !== 'undefined') {
+      Benchmark.init();
     }
   }
 

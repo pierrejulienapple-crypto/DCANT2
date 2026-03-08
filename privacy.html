@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Politique de confidentialité — DCANT</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; max-width: 760px; margin: 0 auto; padding: 48px 24px 80px; color: #1c1917; background: #f5f3f0; line-height: 1.7; font-size: 15px; }
+    h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-size: 2rem; font-weight: 400; margin-bottom: 4px; }
+    .subtitle { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #78716c; margin-bottom: 40px; }
+    h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #1a2744; margin-top: 40px; margin-bottom: 12px; font-weight: 600; }
+    p, li { color: #44403c; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    a { color: #1a2744; }
+    .back { display: inline-block; margin-top: 48px; font-size: 13px; color: #1a2744; text-decoration: none; border-bottom: 1px solid #1a2744; }
+    .card { background: #fff; border-radius: 8px; padding: 24px 28px; margin-top: 12px; }
+    .date { font-size: 12px; color: #a8a29e; margin-bottom: 40px; }
+  </style>
+</head>
+<body>
+  <h1>Politique de confidentialité</h1>
+  <div class="subtitle">DCANT — Application de calcul de marge</div>
+  <div class="date">Dernière mise à jour : mars 2026</div>
+  <div class="card">
+
+    <h2>1. Responsable du traitement</h2>
+    <p>Le responsable du traitement est l'éditeur de DCANT. Contact : <a href="mailto:pierrejulienapple@gmail.com">pierrejulienapple@gmail.com</a></p>
+
+    <h2>2. Données collectées et pourquoi</h2>
+    <p><strong>Données de compte (nécessaires au service) :</strong> adresse e-mail et identifiant, utilisés uniquement pour vous authentifier et associer vos calculs à votre compte. Ces données ne sont jamais utilisées dans le benchmark.</p>
+    <p><strong>Données de calcul :</strong> domaine, cuvée, millésime, prix d'achat, charges, marges et prix de vente que vous saisissez ou importez.</p>
+    <p><strong>Documents importés :</strong> factures fournisseurs (PDF ou images) transmis à l'API Anthropic pour extraction automatique. Non conservés après traitement.</p>
+    <p><strong>Données analytiques (avec votre consentement) :</strong> comportement de navigation via Microsoft Clarity (heatmaps, sessions anonymisées). Activé uniquement si vous acceptez les cookies.</p>
+
+    <h2>3. Le benchmark anonymisé — comment ça fonctionne</h2>
+    <p>Si vous y consentez explicitement, certaines données de vos imports participent à un benchmark collectif. Voici exactement ce qui se passe :</p>
+    <ul>
+      <li>Seuls trois champs sont utilisés : <strong>domaine, millésime, prix d'achat</strong>.</li>
+      <li>Votre identité (e-mail, identifiant) n'est <strong>jamais</strong> incluse dans ces données agrégées.</li>
+      <li>Les données ne sont affichées qu'agrégées (médiane sur minimum 5 contributeurs). Impossible de retrouver votre prix individuel.</li>
+      <li>Ce consentement est facultatif, séparé du service, et révocable à tout moment depuis la page Benchmark.</li>
+    </ul>
+    <p>En clair : DCANT sait qui vous êtes pour vous connecter, mais les autres utilisateurs ne voient que des médianes anonymes.</p>
+
+    <h2>4. Sous-traitants</h2>
+    <ul>
+      <li><strong>Supabase</strong> (USA) — base de données et authentification. <a href="https://supabase.com/privacy" target="_blank">Politique</a>.</li>
+      <li><strong>Vercel</strong> (USA) — hébergement. <a href="https://vercel.com/legal/privacy-policy" target="_blank">Politique</a>.</li>
+      <li><strong>Anthropic API</strong> (USA) — analyse IA des documents importés. Non conservés après traitement. <a href="https://www.anthropic.com/privacy" target="_blank">Politique</a>.</li>
+      <li><strong>OpenAI Whisper API</strong> (USA) — transcription audio. Non conservés après traitement. <a href="https://openai.com/policies/privacy-policy" target="_blank">Politique</a>.</li>
+      <li><strong>Microsoft Clarity</strong> (USA) — analytics comportemental, uniquement avec consentement. <a href="https://privacy.microsoft.com/fr-fr/privacystatement" target="_blank">Politique</a>.</li>
+    </ul>
+    <p>Transferts vers les USA encadrés par les clauses contractuelles types de la Commission européenne.</p>
+
+    <h2>5. Base légale</h2>
+    <ul>
+      <li><strong>Exécution du contrat</strong> (art. 6.1.b RGPD) : e-mail, calculs.</li>
+      <li><strong>Consentement</strong> (art. 6.1.a RGPD) : cookies Clarity, benchmark.</li>
+      <li><strong>Intérêt légitime</strong> (art. 6.1.f RGPD) : sécurité.</li>
+    </ul>
+
+    <h2>6. Durée de conservation</h2>
+    <ul>
+      <li>Compte et calculs : durée d'utilisation + 12 mois après fermeture.</li>
+      <li>Documents importés : non conservés après traitement IA.</li>
+      <li>Données Clarity : 13 mois maximum.</li>
+    </ul>
+
+    <h2>7. Vos droits</h2>
+    <p>Accès, rectification, effacement, limitation, portabilité, opposition, retrait du consentement. Contact : <a href="mailto:pierrejulienapple@gmail.com">pierrejulienapple@gmail.com</a>. Réclamation possible auprès de la <a href="https://www.cnil.fr" target="_blank">CNIL</a>.</p>
+
+    <h2>8. Cookies</h2>
+    <p>Cookies strictement nécessaires (session, préférences) : pas de consentement requis. Cookies analytiques (Microsoft Clarity) : consentement demandé à la première visite, modifiable à tout moment.</p>
+  </div>
+  <a href="/" class="back">← Retour à l'application</a>
+</body>
+</html>
