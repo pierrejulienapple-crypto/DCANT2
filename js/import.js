@@ -207,15 +207,32 @@ const Import = (() => {
       const alts = c.alternatives && c.alternatives[f] ? c.alternatives[f] : [];
       const val = c[f] !== null && c[f] !== undefined ? c[f] : '';
       const altsJson = JSON.stringify(alts).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
-      return `<td class="import-td-click${uncertain ? ' cell-uncertain' : ''}"
+
+      // Appellation matching : statut bleu si unsure
+      const isUnsure = f === 'appellation' && c.appellation_match === 'unsure';
+      const appSugg = (f === 'appellation' && c.appellation_suggestions) ? c.appellation_suggestions : [];
+      const appSuggJson = JSON.stringify(appSugg).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+
+      let cellClass = 'import-td-click';
+      let dotHtml = '';
+      if (isUnsure) {
+        cellClass += ' cell-unsure';
+        dotHtml = '<span class="cell-unsure-dot">?</span>';
+      } else if (uncertain) {
+        cellClass += ' cell-uncertain';
+        dotHtml = '<span class="cell-uncertain-dot">\u25CF</span>';
+      }
+
+      return `<td class="${cellClass}"
         onclick="event.stopPropagation();Import.editCell(${c.id},'${f}')"
         data-id="${c.id}" data-field="${f}"
-        data-alts='${altsJson}'>
-        <span class="td-val">${_esc(val)}</span>${uncertain ? '<span class="cell-uncertain-dot">●</span>' : ''}
+        data-alts='${altsJson}'
+        data-app-sugg='${appSuggJson}'>
+        <span class="td-val">${_esc(val)}</span>${dotHtml}
       </td>`;
     }).join('');
 
-    return `<tr id="import-row-${c.id}">${cells}<td class="import-td-del" onclick="event.stopPropagation();Import.deleteRow(${c.id})" title="Supprimer cette ligne">✕</td></tr>`;
+    return `<tr id="import-row-${c.id}">${cells}<td class="import-td-del" onclick="event.stopPropagation();Import.deleteRow(${c.id})" title="Supprimer cette ligne">\u2715</td></tr>`;
   }
 
   // ── ÉDITION INLINE ──
@@ -261,7 +278,15 @@ const Import = (() => {
 
     const alts = JSON.parse(td.dataset.alts || '[]');
     const currentVal = c[field] !== null ? String(c[field]) : '';
-    const suggestions = _getSuggestions(field, currentVal);
+    let suggestions = _getSuggestions(field, currentVal);
+
+    // Pour les appellations unsure : ajouter les suggestions IA en priorité
+    if (field === 'appellation' && c.appellation_match === 'unsure') {
+      const appSugg = JSON.parse(td.dataset.appSugg || '[]');
+      if (appSugg.length > 0) {
+        suggestions = appSugg.concat(suggestions).filter((v, i, a) => a.indexOf(v) === i);
+      }
+    }
 
     _closePop();
 
@@ -346,6 +371,11 @@ const Import = (() => {
 
     const oldVal = c[field];
     c[field] = newVal;
+
+    // Si appellation corrigée, enlever le statut unsure
+    if (field === 'appellation' && c.appellation_match === 'unsure') {
+      c.appellation_match = 'ok';
+    }
 
     // Ferme la popup AVANT le refresh pour éviter la réapparition
     _closePop();

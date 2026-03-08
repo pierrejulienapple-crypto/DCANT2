@@ -9,6 +9,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   _initCookieBanner();
   PWA.init();
 
+  // Charger les appellations en mémoire + autocomplete
+  Appellations.init().then(() => {
+    Appellations.attach(document.getElementById('appellation'));
+  });
+
   // Bloque le scroll sur les champs numériques
   document.addEventListener('wheel', (e) => {
     if (document.activeElement.type === 'number') {

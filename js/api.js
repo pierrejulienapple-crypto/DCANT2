@@ -13,6 +13,30 @@ async function callClaudeAPI(images, corrections, options) {
       corrections.map(c => `- "${c.original}" corrigé en "${c.corrected}" (champ: ${c.field})`).join('\n');
   }
 
+  // Référentiel d'appellations officielles pour le matching (compact — France uniquement)
+  let appellationContext = '';
+  if (typeof Appellations !== 'undefined' && Appellations.isReady()) {
+    const list = Appellations.getList();
+    // Filtrer : France uniquement pour limiter la taille du prompt (~536 noms vs 1916)
+    const frNames = list.filter(a => a.pays === 'France').map(a => a.nom);
+    if (frNames.length > 0) {
+      // Format compact : séparés par " | " au lieu de \n, avec cap de sécurité 20KB
+      let namesStr = frNames.join(' | ');
+      if (namesStr.length > 20000) {
+        namesStr = namesStr.substring(0, 20000);
+        // Couper au dernier séparateur complet
+        const lastSep = namesStr.lastIndexOf(' | ');
+        if (lastSep > 0) namesStr = namesStr.substring(0, lastSep);
+      }
+      appellationContext = `\n\nRÉFÉRENTIEL APPELLATIONS FR (${frNames.length} entrées, séparées par " | ") :\n` +
+        namesStr +
+        `\n\nINSTRUCTION APPELLATION : Compare l'appellation lue avec ce référentiel.
+- Match exact/quasi-exact (accent, casse, abréviation) → nom officiel + "appellation_match": "ok"
+- Hésitation ou pas dans le référentiel → "appellation_match": "unsure" + "appellation_suggestions": [3 plus proches]
+- Clairement absente (vin étranger, etc.) → "appellation_match": "unknown" + "appellation_suggestions": []`;
+    }
+  }
+
   // Instructions supplémentaires pour les photos de documents
   const photoContext = options.isPhoto ? `
 
@@ -41,12 +65,14 @@ Pour chaque vin trouvé, retourne :
 - millesime : année (peut être vide)
 - prix : prix HT en nombre décimal (si plusieurs prix, prends le prix unitaire HT le plus probable)
 - confiance : score 0 à 1 pour chaque champ
-- alternatives : valeurs alternatives pour les champs incertains (confiance < 0.8)${learningContext}
+- alternatives : valeurs alternatives pour les champs incertains (confiance < 0.8)
+- appellation_match : "ok" si l'appellation correspond au référentiel, "unsure" si doute, "unknown" si absente du référentiel
+- appellation_suggestions : tableau des 3 appellations officielles les plus proches (si appellation_match est "unsure")${learningContext}${appellationContext}
 
 IMPORTANT : Retourne TOUJOURS le JSON, même si tu n'es pas sûr. Mets des scores de confiance bas si nécessaire. Ne retourne une erreur que si le document ne contient ABSOLUMENT AUCUNE référence à du vin.
 
 Réponds UNIQUEMENT avec un JSON valide, sans texte ni markdown :
-{"cuvees": [{"domaine": "X", "cuvee": "", "appellation": "", "millesime": "", "prix": 0, "confiance": {"domaine": 0.9, "cuvee": 1, "appellation": 0.8, "millesime": 0.7, "prix": 0.95}, "alternatives": {}}], "nb_total": 1, "avertissement": null}
+{"cuvees": [{"domaine": "X", "cuvee": "", "appellation": "", "millesime": "", "prix": 0, "confiance": {"domaine": 0.9, "cuvee": 1, "appellation": 0.8, "millesime": 0.7, "prix": 0.95}, "alternatives": {}, "appellation_match": "ok", "appellation_suggestions": []}], "nb_total": 1, "avertissement": null}
 
 Max 100 cuvées. Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin détecté dans ce document."}`;
 
@@ -68,14 +94,19 @@ Max 100 cuvées. Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin d
   });
 
   if (!response.ok) {
+    const detail = await response.text();
+    console.error('[API] HTTP', response.status, detail);
     if (response.status === 401) {
-      const detail = await response.text();
       let reason = '';
-      try { reason = ' (' + JSON.parse(detail).reason + ')'; } catch(e) {}
-      throw new Error('Session expirée' + reason + '. Déconnectez-vous et reconnectez-vous.');
+      try {
+        const j = JSON.parse(detail);
+        reason = j.reason || j.error || j.message || detail.substring(0, 100);
+      } catch(e) {
+        reason = detail.substring(0, 100);
+      }
+      throw new Error('Erreur auth (401): ' + reason);
     }
-    const err = await response.text();
-    throw new Error('Erreur API: ' + err);
+    throw new Error('Erreur API ' + response.status + ': ' + detail.substring(0, 200));
   }
 
   const data = await response.json();
