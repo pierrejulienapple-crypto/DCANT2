@@ -13,27 +13,19 @@ async function callClaudeAPI(images, corrections, options) {
       corrections.map(c => `- "${c.original}" corrigé en "${c.corrected}" (champ: ${c.field})`).join('\n');
   }
 
-  // Référentiel d'appellations officielles pour le matching (compact — France uniquement)
+  // Référentiel d'appellations officielles pour le matching IA (toutes — FR + Europe)
   let appellationContext = '';
   if (typeof Appellations !== 'undefined' && Appellations.isReady()) {
-    const list = Appellations.getList();
-    // Filtrer : France uniquement pour limiter la taille du prompt (~536 noms vs 1916)
-    const frNames = list.filter(a => a.pays === 'France').map(a => a.nom);
-    if (frNames.length > 0) {
-      // Format compact : séparés par " | " au lieu de \n, avec cap de sécurité 20KB
-      let namesStr = frNames.join(' | ');
-      if (namesStr.length > 20000) {
-        namesStr = namesStr.substring(0, 20000);
-        // Couper au dernier séparateur complet
-        const lastSep = namesStr.lastIndexOf(' | ');
-        if (lastSep > 0) namesStr = namesStr.substring(0, lastSep);
-      }
-      appellationContext = `\n\nRÉFÉRENTIEL APPELLATIONS FR (${frNames.length} entrées, séparées par " | ") :\n` +
+    const names = Appellations.getNames();
+    if (names.length > 0) {
+      // Format compact : séparés par " | " (~50KB pour 1916 entrées — OK pour l'API)
+      const namesStr = names.join(' | ');
+      appellationContext = `\n\nRÉFÉRENTIEL APPELLATIONS OFFICIELLES (${names.length} entrées, séparées par " | ") :\n` +
         namesStr +
         `\n\nINSTRUCTION APPELLATION : Compare l'appellation lue avec ce référentiel.
 - Match exact/quasi-exact (accent, casse, abréviation) → nom officiel + "appellation_match": "ok"
 - Hésitation ou pas dans le référentiel → "appellation_match": "unsure" + "appellation_suggestions": [3 plus proches]
-- Clairement absente (vin étranger, etc.) → "appellation_match": "unknown" + "appellation_suggestions": []`;
+- Clairement absente → "appellation_match": "unknown" + "appellation_suggestions": []`;
     }
   }
 
