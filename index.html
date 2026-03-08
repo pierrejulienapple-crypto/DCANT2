@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&family=Caveat:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-<link rel="stylesheet" href="css/app.css?v=35">
+<link rel="stylesheet" href="css/app.css?v=34">
 </head>
 <body>
 
@@ -581,14 +581,6 @@
           onkeydown="if(event.key==='Enter')UI.submitRegister()">
       </div>
       <div class="modal-err" id="authErrRegister"></div>
-      <div class="consent-block">
-        <label class="consent-label">
-          <input type="checkbox" id="consent-benchmark" />
-          <span>Rejoindre le r&eacute;seau DCANT &mdash; je partage mes prix d'achat anonymement pour contribuer aux benchmarks.
-            <a href="#" onclick="showPrivacyInfo(event)">En savoir plus</a>
-          </span>
-        </label>
-      </div>
       <div class="modal-ffoot">
         <button class="btn solid" onclick="UI.submitRegister()" id="registerBtn">Créer mon compte</button>
         <button class="btn" onclick="document.getElementById('authOverlay').classList.remove('open')">Annuler</button>
@@ -619,18 +611,15 @@
 
 <!-- COOKIE BANNER -->
 <div class="cookie-bar" id="cookieBar">
-  <span>Ce site utilise des cookies pour am&eacute;liorer votre exp&eacute;rience.</span>
-  <div class="cookie-bar-btns">
-    <button class="cookie-ok" onclick="acceptCookies()">Accepter</button>
-    <button class="cookie-refuse" onclick="refuseCookies()">Refuser</button>
-  </div>
+  <span>Ce site utilise des cookies.</span>
+  <button class="cookie-ok" onclick="acceptCookies()">OK</button>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <!-- Scripts — ordre important -->
 <script src="js/config.js?v=15"></script>
-<script src="js/state.js?v=19"></script>
+<script src="js/state.js?v=18"></script>
 <script src="js/api.js?v=25"></script>
 <script src="js/calcul.js?v=15"></script>
 <script src="js/auth.js?v=15"></script>
@@ -642,8 +631,8 @@
 <script src="js/import.js?v=23"></script>
 <script src="js/export.js?v=31"></script>
 <script src="js/calcul_ui.js?v=15"></script>
-<script src="js/ui.js?v=16"></script>
-<script src="js/app.js?v=18"></script>
+<script src="js/ui.js?v=15"></script>
+<script src="js/app.js?v=17"></script>
 
 <!-- EXPORT WIZARD — PLEIN ÉCRAN 3 CARTES -->
 <div class="import-overlay" id="exportOverlay">
@@ -841,14 +830,6 @@
     </div>
   </div>
 </div>
-
-<footer class="legal-footer">
-  <a href="https://www.iubenda.com/privacy-policy/VOTRE_ID" target="_blank">Politique de confidentialit&eacute;</a>
-  <span>&middot;</span>
-  <a href="https://www.iubenda.com/terms-and-conditions/VOTRE_ID" target="_blank">CGU</a>
-  <span>&middot;</span>
-  <span>&copy; DCANT 2026</span>
-</footer>
 
 </body>
 </html>
