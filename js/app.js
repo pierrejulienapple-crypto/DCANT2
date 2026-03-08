@@ -69,7 +69,10 @@ function _initCookieConsent() {
     var banner = document.getElementById('cookie-banner');
     if (banner) banner.style.display = 'flex';
   }
-  if (consent === 'accepted') _loadClarity();
+  if (consent === 'accepted') {
+    _loadClarity();
+    _grantClarityConsent();
+  }
 
   var btnA = document.getElementById('cookie-accept');
   var btnR = document.getElementById('cookie-refuse');
@@ -77,11 +80,21 @@ function _initCookieConsent() {
     localStorage.setItem('dcant_cookies', 'accepted');
     document.getElementById('cookie-banner').style.display = 'none';
     _loadClarity();
+    _grantClarityConsent();
   });
   if (btnR) btnR.addEventListener('click', function() {
     localStorage.setItem('dcant_cookies', 'refused');
     document.getElementById('cookie-banner').style.display = 'none';
   });
+}
+
+function _grantClarityConsent() {
+  if (window.clarity) {
+    window.clarity('consentv2', {
+      ad_Storage: 'granted',
+      analytics_Storage: 'granted'
+    });
+  }
 }
 
 function _loadClarity() {
