@@ -1230,6 +1230,11 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 .import-pop-ac-nom { font-size: 13px; color: var(--text); font-weight: 500; }
 .import-pop-ac-sub { font-size: 11px; color: var(--dim); }
 
+/* ── LEGAL FOOTER ── */
+.legal-footer { text-align: center; padding: 24px; font-size: 11px; color: var(--dimmer); display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.legal-footer a { color: var(--dimmer); text-decoration: none; }
+.legal-footer a:hover { text-decoration: underline; }
+
 /* Popup auth pour utilisateur non connecté */
 .auth-prompt-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -1369,6 +1374,8 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 .cookie-bar.hidden { display: none; }
 .cookie-ok { background: transparent; color: var(--white); border: 1px solid rgba(255,255,255,.4); font-family: var(--font); font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; padding: 6px 16px; cursor: pointer; flex-shrink: 0; transition: border-color .15s; }
 .cookie-ok:hover { border-color: #fff; }
+.cookie-bar-btns { display: flex; gap: 8px; flex-shrink: 0; }
+.cookie-refuse { background: transparent; color: rgba(255,255,255,.6); border: none; font-family: var(--font); font-size: 12px; cursor: pointer; text-decoration: underline; }
 
 /* ── STICKY CTA ── */
 .sticky-cta {
@@ -1383,6 +1390,12 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 }
 .sticky-cta.hidden { display: none; }
 .sticky-cta .btn { width: 100%; max-width: 440px; text-align: center; }
+
+/* ── CONSENT ── */
+.consent-block { margin-top: 12px; }
+.consent-label { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: var(--dim); cursor: pointer; line-height: 1.5; }
+.consent-label input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; accent-color: var(--accent); }
+.consent-label a { color: var(--accent); }
 
 /* ── AUTH TABS ── */
 .auth-tabs {

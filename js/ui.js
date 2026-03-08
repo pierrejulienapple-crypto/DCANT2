@@ -98,6 +98,9 @@ const UI = (() => {
     const result = await Auth.register(email, pw);
     btn.disabled = false; btn.textContent = 'Créer mon compte';
     if (!result.ok) { g('authErrRegister').textContent = result.message; return; }
+    // Sauvegarde le consentement benchmark
+    const consentBenchmark = g('consent-benchmark')?.checked || false;
+    localStorage.setItem('dcant_consent_benchmark', consentBenchmark ? 'true' : 'false');
     g('authOverlay').classList.remove('open');
     track('compte_cree');
     toast('Compte créé ! Bienvenue dans Dcant.');

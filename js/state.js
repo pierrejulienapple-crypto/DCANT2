@@ -60,6 +60,18 @@ function confirmCancel() {
 function acceptCookies() {
   Storage.Local.acceptCookies();
   g('cookieBar').classList.add('hidden');
+  // Charge Clarity maintenant que le consentement est donné
+  if (typeof _initClarity === 'function') _initClarity();
+}
+
+function refuseCookies() {
+  localStorage.setItem('dc_cookies', '0');
+  g('cookieBar').classList.add('hidden');
+}
+
+function showPrivacyInfo(e) {
+  e.preventDefault();
+  toast("Vos prix d'achat sont anonymisés et jamais associés à votre identité. Vous pouvez retirer votre consentement à tout moment dans vos paramètres.");
 }
 
 async function authHeaders() {

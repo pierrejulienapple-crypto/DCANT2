@@ -64,8 +64,11 @@ function _initSupabase() {
 }
 
 function _initClarity() {
+  // Ne charge Clarity que si le consentement cookies est donné (RGPD)
+  if (!Storage.Local.cookiesAccepted()) return;
   const id = DCANT_CONFIG.clarity.id;
   if (!id || id.includes('COLLER')) return;
+  if (window.clarity) return; // déjà chargé
   try {
     (function(c,l,a,r,i,t,y){
       c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
@@ -76,7 +79,9 @@ function _initClarity() {
 }
 
 function _initCookieBanner() {
-  if (Storage.Local.cookiesAccepted()) {
+  const choice = localStorage.getItem('dc_cookies');
+  if (choice !== null) {
+    // Déjà accepté ou refusé → cacher le banner
     document.getElementById('cookieBar')?.classList.add('hidden');
   }
 }
