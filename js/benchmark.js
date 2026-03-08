@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════
 // DCANT — Benchmark (page dédiée)
 // Consentement + compteur participants
+// Sync Supabase (par compte, pas par appareil)
 // ═══════════════════════════════════════════
 
 const Benchmark = (() => {
@@ -21,6 +22,36 @@ const Benchmark = (() => {
     }
   }
 
+  // ── Sync Supabase → localStorage au chargement ──
+  // Si l'utilisateur a rejoint le réseau sur un autre appareil,
+  // on synchronise son choix ici.
+  async function _syncConsent() {
+    if (!App.user) return;
+    try {
+      var { data, error } = await window.supabase
+        .from('calculs')
+        .select('partage_benchmark')
+        .eq('user_id', App.user.id)
+        .eq('partage_benchmark', true)
+        .limit(1);
+      if (error) throw error;
+      if (data && data.length > 0) {
+        localStorage.setItem('dcant_benchmark_consent', 'yes');
+      }
+    } catch(e) { /* silently fail */ }
+  }
+
+  // ── Met à jour partage_benchmark sur TOUS les calculs du user ──
+  async function _updateSupabaseConsent(consent) {
+    if (!App.user) return;
+    try {
+      await window.supabase
+        .from('calculs')
+        .update({ partage_benchmark: consent })
+        .eq('user_id', App.user.id);
+    } catch(e) { /* silently fail */ }
+  }
+
   // Rend le bloc consent dans un conteneur donné (top ou bottom)
   function _renderBlock(block, suffix) {
     var consent = localStorage.getItem('dcant_benchmark_consent');
@@ -34,6 +65,7 @@ const Benchmark = (() => {
         '</div>';
       document.getElementById('bm-leave-' + suffix).addEventListener('click', function() {
         localStorage.setItem('dcant_benchmark_consent', 'no');
+        _updateSupabaseConsent(false);
         _render();
         _loadCount();
       });
@@ -44,6 +76,7 @@ const Benchmark = (() => {
         '<button id="bm-join-' + suffix + '" class="bm-join-btn">Rejoindre le réseau</button>';
       document.getElementById('bm-join-' + suffix).addEventListener('click', function() {
         localStorage.setItem('dcant_benchmark_consent', 'yes');
+        _updateSupabaseConsent(true);
         _render();
         _loadCount();
       });
@@ -57,6 +90,7 @@ const Benchmark = (() => {
         '</div>';
       document.getElementById('bm-join-' + suffix).addEventListener('click', function() {
         localStorage.setItem('dcant_benchmark_consent', 'yes');
+        _updateSupabaseConsent(true);
         _render();
         _loadCount();
       });
@@ -74,7 +108,8 @@ const Benchmark = (() => {
     if (bottom) _renderBlock(bottom, 'bottom');
   }
 
-  function init() {
+  async function init() {
+    await _syncConsent();
     _loadCount();
     _render();
   }

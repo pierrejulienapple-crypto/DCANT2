@@ -320,7 +320,7 @@ const UI = (() => {
               <div class="domain-meta">${entries.length} cuvée${entries.length > 1 ? 's' : ''} · dernier PV ${fmt(latest.pvht)} € HT</div>
             </div>
             <label class="dom-sel-all" onclick="event.stopPropagation()">
-              <input type="checkbox" onchange="UI.selDomAll(this.checked,${JSON.stringify(entries.map(e => e.id))})"> Tout
+              <input type="checkbox" onchange="UI.selDomAll(this.checked,${JSON.stringify(entries.map(e => e.id)).replace(/"/g, '&quot;')})"> Tout
             </label>
             <span class="domain-chev open">▾</span>
           </div>
