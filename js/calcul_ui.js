@@ -130,7 +130,7 @@ const Calcul_UI = (() => {
             if (data) {
               bmEl.innerHTML = '<span class="bm-label">March\u00e9</span> ' + Benchmark.renderMarketHTML(data);
             } else {
-              bmEl.style.display = 'none';
+              bmEl.innerHTML = '<span class="bm-label">March\u00e9</span> <span class="bm-nodata">Pas encore de donn\u00e9es</span>';
             }
           });
         } else {
