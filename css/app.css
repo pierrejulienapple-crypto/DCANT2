@@ -1223,6 +1223,13 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 .import-pop-suggest:hover { background: rgba(45,122,79,.18); }
 .import-pop-suggest.selected { background: #2d7a4f; color: white; border-color: #2d7a4f; }
 
+/* Autocomplete appellation dans popup import */
+.import-pop-ac { max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--white); margin-top: 4px; }
+.import-pop-ac-item { padding: 8px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 1px; transition: background .12s; }
+.import-pop-ac-item:hover { background: rgba(26,39,68,.06); }
+.import-pop-ac-nom { font-size: 13px; color: var(--text); font-weight: 500; }
+.import-pop-ac-sub { font-size: 11px; color: var(--dim); }
+
 /* Popup auth pour utilisateur non connecté */
 .auth-prompt-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;

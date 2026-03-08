@@ -348,6 +348,7 @@ const Import = (() => {
             window.visualViewport?.removeEventListener('resize', onResize);
           }, { once: true });
         }
+        if (field === 'appellation') _attachAppAc(id, field);
       }, 200);
       return;
     }
@@ -379,20 +380,17 @@ const Import = (() => {
       scrollParent.addEventListener('scroll', _closePop, { once: true });
     }
 
-    setTimeout(() => g('importPopInput')?.focus(), 50);
+    setTimeout(() => {
+      g('importPopInput')?.focus();
+      if (field === 'appellation') _attachAppAc(id, field);
+    }, 50);
   }
 
   function selectAlt(id, field, val, ev) {
-    // Met la valeur dans le champ de saisie comme base modifiable
+    // Met la valeur et valide immédiatement (ferme le popup + enregistre l'édition)
     const input = g('importPopInput');
-    if (input) {
-      input.value = val;
-      input.focus();
-      input.select();
-      // Highlight l'alt cliquée
-      document.querySelectorAll('.import-pop-alt').forEach(b => b.classList.remove('selected'));
-      if (ev && ev.target) ev.target.classList.add('selected');
-    }
+    if (input) input.value = val;
+    confirmEdit(id, field);
   }
 
   async function confirmEdit(id, field) {
@@ -534,6 +532,44 @@ const Import = (() => {
   function _closePop() {
     const pop = g('importPop');
     if (pop) pop.remove();
+  }
+
+  // ── Autocomplete appellation dans le popup d'édition ──
+  function _attachAppAc(id, field) {
+    const input = g('importPopInput');
+    if (!input) return;
+    if (typeof Appellations === 'undefined' || !Appellations.isReady()) return;
+
+    const acDiv = document.createElement('div');
+    acDiv.className = 'import-pop-ac';
+    acDiv.style.display = 'none';
+    input.parentNode.appendChild(acDiv);
+
+    let debounce;
+    input.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        const val = input.value.trim();
+        if (val.length < 1) { acDiv.style.display = 'none'; return; }
+        const results = Appellations.search(val, 8);
+        if (!results.length) { acDiv.style.display = 'none'; return; }
+        acDiv.innerHTML = results.map(r => {
+          const sub = [r.pays, r.region, r.type].filter(Boolean).join(' \u00b7 ');
+          return `<div class="import-pop-ac-item" data-nom="${_esc(r.nom)}">
+            <span class="import-pop-ac-nom">${_esc(r.nom)}</span>
+            ${sub ? `<span class="import-pop-ac-sub">${_esc(sub)}</span>` : ''}
+          </div>`;
+        }).join('');
+        acDiv.style.display = 'block';
+        acDiv.querySelectorAll('.import-pop-ac-item').forEach(el => {
+          el.addEventListener('mousedown', e => {
+            e.preventDefault();
+            input.value = el.dataset.nom;
+            confirmEdit(id, field);
+          });
+        });
+      }, 100);
+    });
   }
 
   function _saveStateToSession() {
