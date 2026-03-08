@@ -1419,11 +1419,11 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
 .bm-active p { font-size: 14px; color: var(--dim); margin: 0; }
 
 .bm-leave-btn {
-  background: transparent; color: var(--dimmer); border: none;
-  padding: 0; font-size: 12px; cursor: pointer; font-family: var(--font);
-  text-decoration: underline; text-underline-offset: 2px; margin-top: 4px;
+  background: #e5e5e5; color: #555; border: none;
+  padding: 10px 20px; border-radius: 6px; font-size: 14px;
+  cursor: pointer; font-family: var(--font); margin-top: 4px;
 }
-.bm-leave-btn:hover { color: var(--dim); }
+.bm-leave-btn:hover { background: #d4d4d4; color: #333; }
 
 .bm-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 .bm-join-btn {
