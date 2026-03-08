@@ -328,12 +328,20 @@ const Import = (() => {
     pop.addEventListener('click', e => e.stopPropagation());
     pop.innerHTML = _editContentHTML(id, field, currentVal, suggestions, alts);
 
-    const rect = td.getBoundingClientRect();
     pop.style.position = 'fixed';
-    pop.style.top = (rect.bottom + 4) + 'px';
-    pop.style.left = rect.left + 'px';
     pop.style.zIndex = '9999';
     document.body.appendChild(pop);
+
+    // Positionner : en dessous par défaut, au-dessus si déborde
+    const rect = td.getBoundingClientRect();
+    const popH = pop.offsetHeight;
+    if (rect.bottom + 4 + popH > window.innerHeight - 10) {
+      // Pas assez de place en bas → au-dessus
+      pop.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    } else {
+      pop.style.top = (rect.bottom + 4) + 'px';
+    }
+    pop.style.left = Math.min(rect.left, window.innerWidth - pop.offsetWidth - 10) + 'px';
 
     const scrollParent = td.closest('.wiz-card-body');
     if (scrollParent) {
@@ -1448,7 +1456,7 @@ Instructions : "${text}"`;
       if (tbody) {
         tbody.innerHTML = `<tr><td colspan="6" style="padding:40px 20px;text-align:center;">
           <div style="font-size:15px;color:var(--dim);margin-bottom:16px;">Connectez-vous pour analyser votre document avec l'IA.</div>
-          <button class="btn solid" onclick="document.getElementById('authOverlay').classList.remove('hidden')" style="margin-bottom:10px;">Connectez-vous pour importer</button>
+          <button class="btn solid" onclick="document.getElementById('authOverlay').classList.add('open')" style="margin-bottom:10px;">Connectez-vous pour importer</button>
           <br><button class="btn sm" onclick="Import.wizGo(1)" style="margin-top:6px;">← Retour</button>
         </td></tr>`;
       }
