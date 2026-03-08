@@ -119,6 +119,13 @@ const Calcul_UI = (() => {
       s('res-coeff', r.coeff.toFixed(2) + '×');
       // Benchmark marché (non-bloquant)
       var bmEl = g('res-benchmark');
+      if (!bmEl) {
+        bmEl = document.createElement('div');
+        bmEl.id = 'res-benchmark';
+        bmEl.className = 'benchmark-line';
+        var rb = document.querySelector('.results-box');
+        if (rb && rb.parentNode) rb.parentNode.insertBefore(bmEl, rb.nextSibling);
+      }
       if (bmEl) {
         var _app = g('appellation')?.value?.trim();
         var _mil = g('millesime')?.value?.trim();
