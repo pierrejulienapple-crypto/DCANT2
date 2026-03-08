@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&family=Caveat:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-<link rel="stylesheet" href="css/app.css?v=35">
+<link rel="stylesheet" href="css/app.css?v=36">
 </head>
 <body>
 
@@ -23,6 +23,7 @@
   <nav>
     <button class="active" onclick="UI.showPage('calcul')">Calcul</button>
     <button onclick="UI.showPage('historique')">Historique</button>
+    <button onclick="UI.showPage('benchmark')">Benchmark</button>
   </nav>
   <div class="header-right">
     <span class="user-label" id="userInfo"></span>
@@ -171,6 +172,14 @@
     </div>
   </div>
 
+  <footer class="app-footer">
+    <a href="/privacy.html" target="_blank">Confidentialit&eacute;</a>
+    <span>&middot;</span>
+    <a href="/cgu.html" target="_blank">CGU</a>
+    <span>&middot;</span>
+    <span>DCANT &copy; 2026</span>
+  </footer>
+
 </div>
 
 <!-- ═══ PAGE HISTORIQUE ═══ -->
@@ -192,7 +201,88 @@
     <button class="btn sm ghost" id="resetFiltersBtn" onclick="UI.resetFilters()" style="display:none">✕ Filtres</button>
   </div>
   <div id="historyContent"></div>
+
+  <footer class="app-footer">
+    <a href="/privacy.html" target="_blank">Confidentialit&eacute;</a>
+    <span>&middot;</span>
+    <a href="/cgu.html" target="_blank">CGU</a>
+    <span>&middot;</span>
+    <span>DCANT &copy; 2026</span>
+  </footer>
 </div>
+
+<!-- ═══ PAGE BENCHMARK ═══ -->
+<section id="page-benchmark" class="page" style="display:none">
+
+  <div class="benchmark-hero">
+    <div class="benchmark-hero-inner">
+      <div class="benchmark-label">EN CONSTRUCTION</div>
+      <h1 class="benchmark-title">Le r&eacute;seau DCANT</h1>
+      <p class="benchmark-intro">
+        Conna&icirc;tre le prix m&eacute;dian du march&eacute; pour chaque appellation, mill&eacute;sime par mill&eacute;sime.
+        Pas des prix th&eacute;oriques &mdash; des prix r&eacute;els, anonymis&eacute;s, partag&eacute;s par des cavistes comme vous.
+      </p>
+      <div class="benchmark-counter-block">
+        <span class="benchmark-counter-number" id="benchmark-participants-count">&mdash;</span>
+        <span class="benchmark-counter-label">professionnel(s) participent d&eacute;j&agrave; au r&eacute;seau</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="benchmark-content">
+
+    <div class="benchmark-section">
+      <div class="benchmark-section-label">CE QUE C'EST</div>
+      <h2 class="benchmark-section-title">Un outil de veille collective</h2>
+      <p>Chaque fois qu'un caviste importe une facture dans DCANT, les prix d'achat sont &mdash; avec son accord &mdash; agr&eacute;g&eacute;s anonymement dans une base commune. Le r&eacute;sultat : des prix m&eacute;dians par appellation et mill&eacute;sime, visibles dans votre historique.</p>
+      <p>Votre identit&eacute; n'est jamais partag&eacute;e. Les autres cavistes voient uniquement des m&eacute;dianes. Personne ne voit les prix individuels de personne.</p>
+      <div class="benchmark-how-grid">
+        <div class="benchmark-how-card">
+          <div class="benchmark-how-icon">📥</div>
+          <div class="benchmark-how-text">Vous importez une facture fournisseur</div>
+        </div>
+        <div class="benchmark-how-card">
+          <div class="benchmark-how-icon">🔒</div>
+          <div class="benchmark-how-text">Seuls domaine + mill&eacute;sime + prix HT sont anonymis&eacute;s</div>
+        </div>
+        <div class="benchmark-how-card">
+          <div class="benchmark-how-icon">📊</div>
+          <div class="benchmark-how-text">La m&eacute;diane s'affiche &agrave; partir de 5 contributions</div>
+        </div>
+        <div class="benchmark-how-card">
+          <div class="benchmark-how-icon">👀</div>
+          <div class="benchmark-how-text">Vous voyez les prix m&eacute;dians du march&eacute; sur vos cuv&eacute;es</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="benchmark-section">
+      <div class="benchmark-section-label">O&Ugrave; ON EN EST</div>
+      <h2 class="benchmark-section-title">Le r&eacute;seau se construit</h2>
+      <p>DCANT part de z&eacute;ro. Le benchmark n'a pas encore de donn&eacute;es suffisantes pour afficher des m&eacute;dianes &mdash; c'est pr&eacute;cis&eacute;ment pourquoi vos premi&egrave;res contributions comptent.</p>
+      <p>Quand vous rejoignez le r&eacute;seau maintenant, vous contribuez &agrave; construire un outil que toute la profession pourra utiliser.</p>
+      <div class="benchmark-status-bar">
+        <div class="benchmark-status-dot benchmark-status-dot--building"></div>
+        <span>Base de donn&eacute;es en cours d'alimentation &mdash; premi&egrave;res m&eacute;dianes &agrave; venir</span>
+      </div>
+    </div>
+
+    <div class="benchmark-section">
+      <div class="benchmark-section-label">VOTRE CHOIX</div>
+      <h2 class="benchmark-section-title">Rejoindre le r&eacute;seau</h2>
+      <div id="benchmark-consent-block"></div>
+    </div>
+
+  </div>
+
+  <footer class="app-footer">
+    <a href="/privacy.html" target="_blank">Politique de confidentialit&eacute;</a>
+    <span>&middot;</span>
+    <a href="/cgu.html" target="_blank">CGU</a>
+    <span>&middot;</span>
+    <span>DCANT &copy; 2026</span>
+  </footer>
+</section>
 
 <!-- ═══ PAGE ADMIN ═══ -->
 <div class="page" id="page-admin">
@@ -611,24 +701,10 @@
 
 <!-- COOKIE BANNER (RGPD) -->
 <div id="cookie-banner" class="cookie-banner" style="display:none">
-  <p>Nous utilisons des cookies analytiques (Microsoft Clarity) pour am&eacute;liorer l'application.</p>
+  <p>Ce site utilise des cookies.</p>
   <div class="cookie-actions">
     <button id="cookie-accept" class="btn-cookie-accept">Accepter</button>
     <button id="cookie-refuse" class="btn-cookie-refuse">Refuser</button>
-  </div>
-</div>
-
-<!-- BENCHMARK CONSENT MODAL (RGPD) -->
-<div class="bm-overlay" id="benchmarkOverlay" style="display:none">
-  <div class="bm-box">
-    <div class="bm-title">Rejoindre le r&eacute;seau DCANT</div>
-    <p class="bm-desc">Vos prix d'achat import&eacute;s peuvent &ecirc;tre partag&eacute;s de fa&ccedil;on <strong>totalement anonyme</strong> pour alimenter un benchmark collectif au b&eacute;n&eacute;fice de tous les utilisateurs.</p>
-    <p class="bm-desc bm-detail">Aucune donn&eacute;e personnelle n'est associ&eacute;e. Vous pouvez changer d'avis &agrave; tout moment.</p>
-    <div class="bm-actions">
-      <button class="btn solid" id="benchmarkAccept">Oui, je participe</button>
-      <button class="btn ghost" id="benchmarkRefuse">Non merci</button>
-    </div>
-    <a class="bm-link" href="/privacy.html" target="_blank">Politique de confidentialit&eacute;</a>
   </div>
 </div>
 
@@ -636,20 +712,21 @@
 
 <!-- Scripts — ordre important -->
 <script src="js/config.js?v=15"></script>
-<script src="js/state.js?v=19"></script>
+<script src="js/state.js?v=20"></script>
 <script src="js/api.js?v=25"></script>
 <script src="js/calcul.js?v=15"></script>
 <script src="js/auth.js?v=15"></script>
 <script src="js/appellations.js?v=5"></script>
-<script src="js/storage.js?v=21"></script>
+<script src="js/storage.js?v=22"></script>
 <script src="js/feedback.js?v=15"></script>
 <script src="js/import-upload.js?v=15"></script>
 <script src="js/import-voice.js?v=16"></script>
 <script src="js/import.js?v=23"></script>
 <script src="js/export.js?v=31"></script>
 <script src="js/calcul_ui.js?v=15"></script>
-<script src="js/ui.js?v=15"></script>
-<script src="js/app.js?v=18"></script>
+<script src="js/ui.js?v=16"></script>
+<script src="js/benchmark.js?v=1"></script>
+<script src="js/app.js?v=19"></script>
 
 <!-- EXPORT WIZARD — PLEIN ÉCRAN 3 CARTES -->
 <div class="import-overlay" id="exportOverlay">
@@ -847,14 +924,6 @@
     </div>
   </div>
 </div>
-
-<footer class="app-footer">
-  <a href="/privacy.html" target="_blank">Confidentialit&eacute;</a>
-  <span class="app-footer-sep">&middot;</span>
-  <a href="/cgu.html" target="_blank">CGU</a>
-  <span class="app-footer-sep">&middot;</span>
-  <span>&copy; DCANT 2026</span>
-</footer>
 
 </body>
 </html>

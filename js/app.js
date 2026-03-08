@@ -87,35 +87,26 @@ function _initCookieConsent() {
 function _loadClarity() {
   if (window._clarityLoaded) return;
   window._clarityLoaded = true;
-  var id = DCANT_CONFIG.clarity.id;
-  if (!id || id.includes('COLLER')) return;
   try {
     (function(c,l,a,r,i,t,y){
       c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
       t=l.createElement(r);t.async=1;t.src='https://www.clarity.ms/tag/'+i;
       y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window,document,'clarity','script',id);
+    })(window,document,'clarity','script','vm9i4i92ay');
   } catch(e) {}
 }
 
-// ── Benchmark consent wrapper (RGPD) ──
-// Wrap Import.saveAll pour injecter source='import' + consentement benchmark
+// ── Benchmark + source wrapper (RGPD) ──
+// Wrap Import.saveAll pour injecter source='import' + partage_benchmark
 // sans modifier import.js
 (function() {
   var _origSaveAll;
   function _wrapSaveAll() {
     if (typeof Import === 'undefined' || !Import.saveAll) return;
-    if (_origSaveAll) return; // déjà wrappé
+    if (_origSaveAll) return;
     _origSaveAll = Import.saveAll;
     Import.saveAll = async function() {
-      // Demander le consentement benchmark une seule fois par appareil
-      var consent = localStorage.getItem('dcant_benchmark_consent');
-      if (consent === null) {
-        consent = await _checkBenchmarkConsent();
-      } else {
-        consent = consent === 'true';
-      }
-      // Injecter source + partage_benchmark dans les futures insertions
+      var consent = localStorage.getItem('dcant_benchmark_consent') === 'yes';
       var origSaveCalcul = Storage.saveCalcul;
       Storage.saveCalcul = function(userId, entry) {
         entry.source = 'import';
@@ -129,7 +120,6 @@ function _loadClarity() {
       }
     };
   }
-  // Wrapper dès que le DOM est prêt (Import est déjà chargé à ce stade)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _wrapSaveAll);
   } else {

@@ -79,42 +79,6 @@ async function authHeaders() {
   return h;
 }
 
-// ── BENCHMARK CONSENT (RGPD) ──
-// Retourne une Promise<boolean> — true si l'utilisateur accepte le partage
-// La modale n'apparaît qu'une seule fois par appareil (localStorage)
-function _checkBenchmarkConsent() {
-  return new Promise((resolve) => {
-    const stored = localStorage.getItem('dcant_benchmark_consent');
-    if (stored !== null) {
-      resolve(stored === 'true');
-      return;
-    }
-    const overlay = g('benchmarkOverlay');
-    if (!overlay) { resolve(false); return; }
-    overlay.style.display = 'flex';
-
-    const btnAccept = g('benchmarkAccept');
-    const btnRefuse = g('benchmarkRefuse');
-    function cleanup() {
-      overlay.style.display = 'none';
-      btnAccept.removeEventListener('click', onAccept);
-      btnRefuse.removeEventListener('click', onRefuse);
-    }
-    function onAccept() {
-      localStorage.setItem('dcant_benchmark_consent', 'true');
-      cleanup();
-      resolve(true);
-    }
-    function onRefuse() {
-      localStorage.setItem('dcant_benchmark_consent', 'false');
-      cleanup();
-      resolve(false);
-    }
-    btnAccept.addEventListener('click', onAccept);
-    btnRefuse.addEventListener('click', onRefuse);
-  });
-}
-
 function track(event, data) {
   try {
     if (window.clarity) window.clarity('event', event);
