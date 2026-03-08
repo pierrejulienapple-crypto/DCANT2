@@ -2497,6 +2497,52 @@ textarea { resize: none; height: 64px; line-height: 1.6; }
   font-size: 14px;
 }
 
+/* ── Autocomplete Appellations ── */
+.ac-wrapper {
+  position: relative;
+  width: 100%;
+}
+.ac-wrapper input { width: 100%; }
+.ac-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.10);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.ac-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  transition: background .1s;
+}
+.ac-item:hover,
+.ac-item-active {
+  background: #f0eeeb;
+}
+.ac-item-nom {
+  font-size: 14px;
+  color: var(--text);
+}
+.ac-item-nom b {
+  color: var(--accent);
+  font-weight: 600;
+}
+.ac-item-sub {
+  font-size: 11px;
+  color: var(--dimmer);
+  white-space: nowrap;
+}
+
 /* PWA standalone — safe area pour iOS (notch/Dynamic Island) */
 @supports (padding-top: env(safe-area-inset-top)) {
   header { padding-top: env(safe-area-inset-top); }
