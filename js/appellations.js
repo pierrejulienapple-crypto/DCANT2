@@ -27,7 +27,7 @@ const Appellations = (() => {
   async function _load() {
     try {
       const url = DCANT_CONFIG.supabase.url +
-        '/rest/v1/appellations?select=nom,pays,region,type&order=nom';
+        '/rest/v1/appellations?select=nom,pays,region,type&order=nom&limit=3000';
       const resp = await fetch(url, {
         headers: { 'apikey': DCANT_CONFIG.supabase.key }
       });
