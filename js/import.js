@@ -1281,10 +1281,12 @@ Instructions : "${text}"`;
         method: 'POST',
         headers: await authHeaders(),
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: 'mistral-small-latest',
           max_tokens: 600,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userMsg }]
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMsg }
+          ]
         })
       });
 
@@ -1293,8 +1295,8 @@ Instructions : "${text}"`;
         throw new Error('API ' + response.status + ': ' + (err.error?.message || 'Erreur réseau'));
       }
       const data = await response.json();
-      if (!data.content || !data.content[0]) throw new Error('Réponse vide de l\'API');
-      const raw = data.content[0].text.trim()
+      if (!data.choices || !data.choices[0]) throw new Error('Réponse vide de l\'API');
+      const raw = data.choices[0].message.content.trim()
         .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
       let parsed;
       try { parsed = JSON.parse(raw); }
@@ -1434,15 +1436,17 @@ Instructions : "${text}"`;
         method: 'POST',
         headers: await authHeaders(),
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: 'mistral-small-latest',
           max_tokens: 500,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userMsg }]
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMsg }
+          ]
         })
       });
 
       const data = await response.json();
-      const raw = data.content[0].text.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, '');
+      const raw = data.choices[0].message.content.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, '');
       let parsed = JSON.parse(raw);
       // Normalise : accepte objet unique ou tableau
       const regles = Array.isArray(parsed) ? parsed : [parsed];

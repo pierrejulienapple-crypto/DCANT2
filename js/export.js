@@ -409,7 +409,7 @@ const Export = (() => {
         const mediaType = _IMAGE_MIMES[ext] || 'image/png';
 
         messages = [{ role: 'user', content: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64}` } },
           { type: 'text', text:
             'Cette image montre un modèle d\'import ou un tableau d\'un autre logiciel.\n' +
             'Identifie TOUTES les colonnes visibles dans le tableau ou la documentation.\n' +
@@ -449,7 +449,7 @@ const Export = (() => {
         method: 'POST',
         headers: await authHeaders(),
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: 'mistral-small-latest',
           max_tokens: 1000,
           messages
         })
@@ -460,7 +460,7 @@ const Export = (() => {
       }
 
       const result = await response.json();
-      let raw = result.content[0].text.trim();
+      let raw = result.choices[0].message.content.trim();
       raw = raw.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
 
       const parsed = JSON.parse(raw);
