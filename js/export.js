@@ -459,7 +459,7 @@ const Export = (() => {
         method: 'POST',
         headers: await authHeaders(),
         body: JSON.stringify({
-          model: isImage ? 'pixtral-large-latest' : 'devstral-medium-latest',
+          model: isImage ? 'claude-sonnet-4-20250514' : 'devstral-medium-latest',
           max_tokens: 1000,
           temperature: 0.1,
           messages

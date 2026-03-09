@@ -64,7 +64,7 @@ Pour chaque vin, détermine :
     method: 'POST',
     headers: await authHeaders(),
     body: JSON.stringify({
-      model: 'pixtral-large-latest',  // Vision model requis pour les images
+      model: 'claude-sonnet-4-20250514',  // Anthropic vision — routé automatiquement par le proxy
       max_tokens: 8000,
       temperature: 0.1,
       messages: [{ role: 'user', content }]
