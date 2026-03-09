@@ -51,12 +51,15 @@ export default async function handler(req, res) {
   try {
     const body = req.body;
 
-    if (!body.model || !body.messages) {
-      return res.status(400).json({ error: 'model and messages required' });
+    if (!body.messages) {
+      return res.status(400).json({ error: 'messages required' });
     }
 
+    // Fallback modèle par défaut si non spécifié
+    const model = body.model || 'devstral-medium-latest';
+
     const payloadObj = {
-      model: body.model,
+      model: model,
       max_tokens: body.max_tokens || 1000,
       messages: body.messages
     };
