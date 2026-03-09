@@ -394,31 +394,35 @@ const Export = (() => {
         _templateHeaders = rows[0].map(h => String(h).trim()).filter(Boolean);
         const headersList = _templateHeaders.map((h, i) => (i + 1) + '. "' + h + '"').join('\n');
 
-        messages = [{ role: 'user', content:
-          'Tu mappes des colonnes de tableur vers les champs d\'une app de gestion de vins.\n\n' +
-          'COLONNES DU FICHIER :\n' + headersList +
-          (userDesc ? '\n\nCONTEXTE DE L\'UTILISATEUR :\n' + userDesc : '') +
-          '\n\nCHAMPS DCANT DISPONIBLES : ' + fieldKeys +
-          '\n\nExemples : "Producteur"→domaine, "AOC"→appellation, "Vintage"→millesime, "Code barre"→null' +
-          '\n\nRéponds UNIQUEMENT en JSON :\n[{"templateCol":"...","dcantField":"cle_ou_null"}]'
-        }];
+        const mappingSystemPrompt = '[Contexte] Tu es un expert en mapping de données pour l\'export de fichiers viticoles. Associe les colonnes d\'un fichier source aux champs standardisés de DCANT.\n\n' +
+          '[Tâche] Pour chaque colonne du fichier source, trouve le champ DCANT correspondant parmi : ' + fieldKeys + ' — ou null si aucune correspondance.\n\n' +
+          '[Format de sortie]\n[{"templateCol": "str", "dcantField": "str ou null", "score": "float"}]\n\n' +
+          '[Règles]\n- Exemples : "Producteur"→domaine, "AOC"→appellation, "Vintage"→millesime, "Prix Achat HT"→pavht, "Prix unitaire HT"→pvht, "Code barre"→null\n- Si ambiguïté, propose le champ le plus probable avec un score < 1.0.\n\n' +
+          '[Instruction finale] Réponds uniquement avec le JSON valide. Aucune explication.';
+
+        messages = [
+          { role: 'system', content: mappingSystemPrompt },
+          { role: 'user', content: 'Type : Excel/CSV\nCOLONNES DU FICHIER :\n' + headersList + (userDesc ? '\n\nContexte : ' + userDesc : '') }
+        ];
 
       } else if (isImage) {
         // ── Image (capture d'écran) → envoyer en vision ──
         const base64 = await _readFileAsBase64(_templateFile);
         const mediaType = _IMAGE_MIMES[ext] || 'image/png';
 
-        messages = [{ role: 'user', content: [
-          { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64}` } },
-          { type: 'text', text:
-            'Cette image montre un modèle d\'import ou un tableau d\'un autre logiciel.\n' +
-            'Identifie TOUTES les colonnes visibles dans le tableau ou la documentation.\n' +
-            (userDesc ? 'Contexte de l\'utilisateur : ' + userDesc + '\n' : '') +
-            '\nCHAMPS DCANT DISPONIBLES : ' + fieldKeys +
-            '\n\nExemples : "Désignation"→cuvee, "Prix unitaire HT"→pvht, "Référence"→null, "Stock"→null' +
-            '\n\nRéponds UNIQUEMENT en JSON :\n[{"templateCol":"nom_exact_colonne","dcantField":"cle_ou_null"}]'
-          }
-        ]}];
+        const mappingSystemPrompt = '[Contexte] Tu es un expert en mapping de données pour l\'export de fichiers viticoles. Associe les colonnes d\'un fichier source aux champs standardisés de DCANT.\n\n' +
+          '[Tâche] Identifie TOUTES les colonnes visibles et trouve le champ DCANT correspondant parmi : ' + fieldKeys + ' — ou null si aucune correspondance.\n\n' +
+          '[Format de sortie]\n[{"templateCol": "nom_exact_colonne", "dcantField": "str ou null", "score": "float"}]\n\n' +
+          '[Règles]\n- Exemples : "Désignation"→cuvee, "Prix unitaire HT"→pvht, "Référence"→null, "Stock"→null\n- Pour les images : analyse le texte extrait pour déduire les colonnes.\n\n' +
+          '[Instruction finale] Réponds uniquement avec le JSON valide. Aucune explication.';
+
+        messages = [
+          { role: 'system', content: mappingSystemPrompt },
+          { role: 'user', content: [
+            { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64}` } },
+            { type: 'text', text: 'Type : Image\nIdentifie les colonnes visibles dans ce tableau.' + (userDesc ? '\nContexte : ' + userDesc : '') }
+          ]}
+        ];
 
       } else if (_templateFile && !isSpread && !isImage) {
         // ── Autre format (PDF, doc…) → description obligatoire ──
@@ -427,30 +431,37 @@ const Export = (() => {
           if (spinner) spinner.style.display = 'none';
           return;
         }
-        messages = [{ role: 'user', content:
-          'L\'utilisateur a un fichier modèle (' + _templateFile.name + ') d\'un autre logiciel.\n' +
-          'Il décrit les colonnes :\n' + userDesc +
-          '\n\nCHAMPS DCANT DISPONIBLES : ' + fieldKeys +
-          '\n\nExemples : "Producteur"→domaine, "AOC"→appellation, "Vintage"→millesime, "Code barre"→null' +
-          '\n\nDéduis les colonnes depuis la description. Réponds UNIQUEMENT en JSON :\n[{"templateCol":"nom_colonne","dcantField":"cle_ou_null"}]'
-        }];
+
+        const mappingSystemPrompt = '[Contexte] Tu es un expert en mapping de données pour l\'export de fichiers viticoles. Associe les colonnes d\'un fichier source aux champs standardisés de DCANT.\n\n' +
+          '[Tâche] Déduis les colonnes depuis la description et trouve le champ DCANT correspondant parmi : ' + fieldKeys + ' — ou null si aucune correspondance.\n\n' +
+          '[Format de sortie]\n[{"templateCol": "nom_colonne", "dcantField": "str ou null", "score": "float"}]\n\n' +
+          '[Instruction finale] Réponds uniquement avec le JSON valide. Aucune explication.';
+
+        messages = [
+          { role: 'system', content: mappingSystemPrompt },
+          { role: 'user', content: 'Type : ' + _templateFile.name + '\nDescription des colonnes :\n' + userDesc }
+        ];
 
       } else {
         // ── Pas de fichier, description seule ──
-        messages = [{ role: 'user', content:
-          'L\'utilisateur décrit les colonnes d\'un modèle d\'export d\'un autre logiciel :\n' + userDesc +
-          '\n\nCHAMPS DCANT DISPONIBLES : ' + fieldKeys +
-          '\n\nExemples : "Producteur"→domaine, "AOC"→appellation, "Vintage"→millesime, "Code barre"→null' +
-          '\n\nDéduis les colonnes depuis la description. Réponds UNIQUEMENT en JSON :\n[{"templateCol":"nom_colonne","dcantField":"cle_ou_null"}]'
-        }];
+        const mappingSystemPrompt = '[Contexte] Tu es un expert en mapping de données pour l\'export de fichiers viticoles. Associe les colonnes d\'un fichier source aux champs standardisés de DCANT.\n\n' +
+          '[Tâche] Déduis les colonnes depuis la description et trouve le champ DCANT correspondant parmi : ' + fieldKeys + ' — ou null si aucune correspondance.\n\n' +
+          '[Format de sortie]\n[{"templateCol": "nom_colonne", "dcantField": "str ou null", "score": "float"}]\n\n' +
+          '[Instruction finale] Réponds uniquement avec le JSON valide. Aucune explication.';
+
+        messages = [
+          { role: 'system', content: mappingSystemPrompt },
+          { role: 'user', content: 'Description des colonnes :\n' + userDesc }
+        ];
       }
 
       const response = await fetch('/api/ai', {
         method: 'POST',
         headers: await authHeaders(),
         body: JSON.stringify({
-          model: 'mistral-small-latest',
+          model: 'devstral-medium-latest',
           max_tokens: 1000,
+          temperature: 0.1,
           messages
         })
       });

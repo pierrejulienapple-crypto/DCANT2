@@ -18,59 +18,40 @@ async function callClaudeAPI(images, corrections, options) {
   if (typeof Appellations !== 'undefined' && Appellations.isReady()) {
     const names = Appellations.getNames();
     if (names.length > 0) {
-      // Format compact : séparés par " | " (~50KB pour 1916 entrées — OK pour l'API)
       const namesStr = names.join(' | ');
-      appellationContext = `\n\nRÉFÉRENTIEL APPELLATIONS OFFICIELLES (${names.length} entrées, séparées par " | ") :\n` +
+      appellationContext = `\n\nRÉFÉRENTIEL APPELLATIONS OFFICIELLES (${names.length} entrées) :\n` +
         namesStr +
-        `\n\nINSTRUCTION APPELLATION — CRITIQUE :
-1. Pour le champ "appellation", utilise TOUJOURS le NOM EXACT du référentiel ci-dessus, PAS le texte brut du document.
-   Exemple : le document dit "IGP Terre Siciliane Biologico" → le référentiel contient "Terre Siciliane" → mets "Terre Siciliane" (sans "IGP", sans "Biologico").
-   Exemple : le document dit "AOC Vouvray" → le référentiel contient "Vouvray" → mets "Vouvray".
-2. Ignore les préfixes (IGP, AOP, AOC, DOC, DOCG) et suffixes (Biologico, Bio, Superiore) pour le matching.
-3. Si match trouvé dans le référentiel → mets le nom officiel + "appellation_match": "ok"
-4. Si hésitation entre plusieurs → "appellation_match": "unsure" + "appellation_suggestions": [3 plus proches du référentiel]
-5. Si absente du référentiel → "appellation_match": "unknown" + "appellation_suggestions": [3 plus proches quand même]`;
+        `\nUtilise TOUJOURS le nom exact de ce référentiel pour le champ "appellation". Ignore les préfixes (IGP, AOP, AOC, DOC, DOCG) et suffixes (Biologico, Bio, Superiore) pour le matching.`;
     }
   }
 
   // Instructions supplémentaires pour les photos de documents
-  const photoContext = options.isPhoto ? `
+  const photoContext = options.isPhoto ? `\nATTENTION — PHOTO DE DOCUMENT : image prise au téléphone (flou, distorsion, ombres possibles). Identifie la structure du document, lis ligne par ligne, privilégie la quantité d'extraction même avec des scores bas.` : '';
 
-ATTENTION — PHOTO DE DOCUMENT : Cette image est une photo prise avec un téléphone, pas un PDF numérique. Elle peut contenir :
-- Du flou, de la distorsion de perspective, des ombres
-- Du texte partiellement coupé ou incliné
-- Des reflets ou un éclairage inégal
-- Des colonnes de prix mal alignées
+  const prompt = `[Contexte] Tu es un expert en analyse de documents viticoles, spécialisé dans l'extraction de données structurées à partir d'images ou de textes de factures, catalogues ou listes de vins. Tu connais les appellations officielles françaises et internationales.
 
-Stratégie de lecture :
-1. Identifie d'abord la STRUCTURE du document (colonnes, lignes, en-têtes)
-2. Lis ligne par ligne en suivant la structure identifiée
-3. Pour les prix, cherche des patterns numériques (xx,xx ou xx.xx) alignés en colonne
-4. Si un mot est illisible, déduis-le du contexte viticole (appellations connues, domaines courants)
-5. Privilégie la QUANTITÉ : extrais tous les vins visibles même partiellement, avec des scores de confiance bas si nécessaire
-6. Ne saute AUCUNE ligne — mieux vaut une extraction incertaine qu'une omission` : '';
+[Tâche] Analyse ce document (${images.length} page${images.length > 1 ? 's' : ''}) et extrais **tous les vins** sous forme de JSON.
+Pour chaque vin, détermine :
+- domaine (str) : Nom du domaine/producteur.
+- cuvée (str ou null) : Nom de la cuvée si présent.
+- appellation (str) : Doit matcher exactement une appellation du référentiel si fourni. Si ambiguïté, retourne la plus probable avec un score_confiance < 1.0. RÈGLE ABSOLUE : remplis ce champ pour CHAQUE vin. Cherche partout (en-tête, pied de page, colonne, mention globale). Si UNE SEULE appellation dans tout le document, applique-la à TOUS les vins.
+- millésime (int ou null) : Année de récolte.
+- prix_ht_unitaire (float) : Prix HT unitaire (convertis les virgules européennes en points : "15,50€" → 15.50). Si plusieurs colonnes de prix (qté, prix unit., total), prends le PRIX UNITAIRE HT. Si seul le TTC est présent, calcule HT avec TVA 20%. Si > 500€/bouteille, vérifie virgule décimale vs séparateur de milliers.
+- score_confiance (float) : [0.0-1.0] selon la clarté (1.0 = parfait, 0.5 = flou, 0.1 = incertain).
+- alternatives (array) : Liste de 1-3 appellations possibles si score_confiance < 0.8.
 
-  const prompt = `Tu es un expert en vins. Analyse cette image (${images.length} page${images.length > 1 ? 's' : ''}).
+[Format de sortie]
+{"vins": [{"domaine": "str", "cuvee": "str ou null", "appellation": "str", "millesime": "int ou null", "prix_ht_unitaire": "float", "score_confiance": "float", "alternatives": ["str"]}], "metadata": {"pages_analysées": "int", "warnings": ["str"]}}
 
-OBJECTIF : Extraire tous les vins mentionnés avec leurs prix. Le document peut être un tarif, une facture, un bon de commande, un catalogue, une carte des vins, un mail, ou tout autre document contenant des vins et des prix. Même si l'image est floue ou de mauvaise qualité, fais de ton mieux pour extraire les informations visibles.${photoContext}
+[Règles]
+- Gère les multi-colonnes et les tableaux (associe chaque ligne à un vin).
+- Pour les prix : priorité aux valeurs "€ HT" ou "HT".
+- Si un champ est illisible : mets null et ajoute un warning dans metadata.warnings.
+- Max 100 vins.
+- Retourne TOUJOURS le JSON, même si tu n'es pas sûr. Mets des scores bas si nécessaire.
+- Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin détecté dans ce document."}${photoContext}${learningContext}${appellationContext}
 
-Pour chaque vin trouvé, retourne :
-- domaine : nom du domaine/producteur
-- cuvee : nom de la cuvée (peut être vide)
-- appellation : appellation d'origine (AOC/AOP/IGP/DOC/DOCG, ex: "Savigny-lès-Beaune 1er Cru", "Côtes du Rhône", "Terre Siciliane"). RÈGLE ABSOLUE : remplis ce champ pour CHAQUE vin. Cherche l'appellation partout dans le document : en-tête, pied de page, colonne dédiée, mention globale, nom du producteur. Si UNE SEULE appellation est mentionnée dans tout le document (ex: "IGP Terre Siciliane" en haut de facture), applique-la à TOUS les vins. NE METS JAMAIS "" (vide) si une appellation existe quelque part dans le document. Mets-la dans "appellation" de chaque cuvée, PAS dans "avertissement".
-- millesime : année (peut être vide)
-- prix : prix HT UNITAIRE (par bouteille) en nombre décimal. ATTENTION VIRGULE DÉCIMALE : les documents européens utilisent la VIRGULE comme séparateur décimal (ex: "8,25" = 8.25 euros, PAS 825). Convertis TOUJOURS en nombre avec POINT décimal. Si plusieurs colonnes de prix existent (qté, prix unit., total), prends le PRIX UNITAIRE HT, pas le total de ligne. Si le prix semble > 500€ par bouteille, vérifie que tu n'as pas confondu virgule décimale et séparation de milliers.
-- confiance : score 0 à 1 pour chaque champ
-- alternatives : valeurs alternatives pour les champs incertains (confiance < 0.8)
-- appellation_match : "ok" si match exact avec le référentiel, "unsure" si doute (TOUJOURS fournir des suggestions dans ce cas), "unknown" si absente du référentiel
-- appellation_suggestions : tableau des 3 appellations officielles les plus proches du référentiel. OBLIGATOIRE si appellation_match est "unsure". Utile aussi pour "unknown".${learningContext}${appellationContext}
-
-IMPORTANT : Retourne TOUJOURS le JSON, même si tu n'es pas sûr. Mets des scores de confiance bas si nécessaire. Ne retourne une erreur que si le document ne contient ABSOLUMENT AUCUNE référence à du vin.
-
-Réponds UNIQUEMENT avec un JSON valide, sans texte ni markdown :
-{"cuvees": [{"domaine": "X", "cuvee": "", "appellation": "", "millesime": "", "prix": 0, "confiance": {"domaine": 0.9, "cuvee": 1, "appellation": 0.8, "millesime": 0.7, "prix": 0.95}, "alternatives": {}, "appellation_match": "ok", "appellation_suggestions": []}], "nb_total": 1, "avertissement": null}
-
-Max 100 cuvées. Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin détecté dans ce document."}`;
+[Instruction finale] Réponds uniquement avec le JSON valide. Aucune explication.`;
 
   // Construit les content blocks : une image par page + le prompt texte (format OpenAI/Mistral)
   const content = images.map(img => ({
@@ -83,8 +64,9 @@ Max 100 cuvées. Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin d
     method: 'POST',
     headers: await authHeaders(),
     body: JSON.stringify({
-      model: 'pixtral-large-latest',
+      model: 'devstral-medium-latest',
       max_tokens: 8000,
+      temperature: 0.1,
       messages: [{ role: 'user', content }]
     })
   });
@@ -111,7 +93,29 @@ Max 100 cuvées. Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin d
   }
   const text = data.choices[0].message.content.trim();
   const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-  const parsed = JSON.parse(clean);
+  let parsed = JSON.parse(clean);
+
+  // ── Normalisation : nouveau format {vins} → ancien format {cuvees} ──
+  if (parsed.vins && !parsed.cuvees) {
+    parsed = {
+      cuvees: parsed.vins.map(v => ({
+        domaine: v.domaine || '',
+        cuvee: v.cuvee || v.cuvée || '',
+        appellation: v.appellation || '',
+        millesime: v.millesime || v.millésime || '',
+        prix: v.prix_ht_unitaire || v.prix || 0,
+        confiance: typeof v.score_confiance === 'number'
+          ? { domaine: v.score_confiance, cuvee: v.score_confiance, appellation: v.score_confiance, millesime: v.score_confiance, prix: v.score_confiance }
+          : (v.confiance || { domaine: 0.9, cuvee: 0.9, appellation: 0.8, millesime: 0.7, prix: 0.9 }),
+        alternatives: Array.isArray(v.alternatives) ? { appellation: v.alternatives } : (v.alternatives || {}),
+        appellation_match: v.appellation_match || (Array.isArray(v.alternatives) && v.alternatives.length ? 'unsure' : 'unknown'),
+        appellation_suggestions: v.alternatives || v.appellation_suggestions || []
+      })),
+      nb_total: parsed.vins.length,
+      avertissement: parsed.metadata?.warnings?.join('. ') || null
+    };
+  }
+
   if (!parsed.cuvees || parsed.cuvees.length === 0) {
     console.error('API response:', text);
   }

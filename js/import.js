@@ -792,17 +792,91 @@ const Import = (() => {
   function _matchCondition(c, field, op, val) {
     if (!field || !op || val === null || val === undefined || val === '') return true;
     const v = parseFloat(val);
-    if (field === 'prix') {
+    if (field === 'prix' || field === 'prix_ht') {
       const p = parseFloat(c.prix) || 0;
       if (op === 'lt')  return p < v;
       if (op === 'lte') return p <= v;
       if (op === 'gt')  return p > v;
       if (op === 'gte') return p >= v;
       if (op === 'eq')  return p === v;
+      if (op === 'neq') return p !== v;
     }
-    if (field === 'domaine') return (c.domaine || '').toLowerCase().includes(String(val).toLowerCase());
-    if (field === 'millesime') return String(c.millesime || '') === String(val);
+    if (field === 'domaine') {
+      const d = (c.domaine || '').toLowerCase();
+      const s = String(val).toLowerCase();
+      if (op === 'neq') return !d.includes(s);
+      return d.includes(s);
+    }
+    if (field === 'appellation') {
+      const a = (c.appellation || '').toLowerCase();
+      const s = String(val).toLowerCase();
+      if (op === 'neq') return !a.includes(s);
+      if (op === 'eq' || op === 'contains') return a.includes(s);
+      return a === s;
+    }
+    if (field === 'millesime') {
+      if (op === 'neq') return String(c.millesime || '') !== String(val);
+      return String(c.millesime || '') === String(val);
+    }
     return true;
+  }
+
+  // ── Normalisation des règles IA (nouveau format → ancien format) ──
+
+  function _parseConditionString(str) {
+    if (!str) return { champ: null, operateur: null, valeur: null };
+    // Parse "prix_ht < 6", "appellation != 'Bordeaux'", "prix_ht >= 20"
+    var m = str.match(/^(\w+)\s*(!=|==|>=|<=|>|<)\s*['"]?([^'"]+?)['"]?\s*$/);
+    if (!m) return { champ: null, operateur: null, valeur: null };
+    var fieldMap = { prix_ht: 'prix', prix: 'prix', domaine: 'domaine', millesime: 'millesime', appellation: 'appellation' };
+    var opMap = { '<': 'lt', '<=': 'lte', '>': 'gt', '>=': 'gte', '==': 'eq', '!=': 'neq' };
+    return {
+      champ: fieldMap[m[1]] || m[1],
+      operateur: opMap[m[2]] || m[2],
+      valeur: m[3].trim()
+    };
+  }
+
+  function _normalizeRegles(parsed) {
+    // Extraire du wrapper {règles: [...]} ou accepter un tableau nu
+    var arr = parsed.règles || parsed.regles || parsed;
+    if (!Array.isArray(arr)) arr = [arr];
+
+    return arr.map(function(r) {
+      // Mode : nouveau → ancien
+      var mode = r.mode;
+      if (mode === 'marge') mode = 'pct';
+      else if (mode === 'prix_fixe') mode = 'euros';
+      // 'coeff' reste 'coeff'
+
+      // Charges : float → {transport, douane}
+      var charges;
+      if (typeof r.charges === 'number') {
+        charges = { transport: r.charges, douane: 0 };
+      } else if (r.charges && typeof r.charges === 'object') {
+        charges = r.charges;
+      } else {
+        charges = { transport: null, douane: null };
+      }
+
+      // Condition : string → {champ, operateur, valeur}
+      var condition;
+      if (typeof r.condition === 'string') {
+        condition = _parseConditionString(r.condition);
+      } else if (r.condition && typeof r.condition === 'object') {
+        condition = r.condition;
+      } else {
+        condition = { champ: null, operateur: null, valeur: null };
+      }
+
+      return {
+        mode: mode,
+        valeur: r.valeur,
+        charges: charges,
+        condition: condition,
+        resume: r.résumé || r.resume || (mode + ' ' + r.valeur)
+      };
+    });
   }
 
   // ── CALCUL LIGNE PAR LIGNE ──
@@ -1254,23 +1328,33 @@ const Import = (() => {
         `${c.domaine} / ${c.cuvee} / ${c.millesime} / ${c.prix}€`
       ).join('\n');
 
-      const systemPrompt = `Tu es un assistant JSON-only qui interprète des instructions de calcul de marge pour un caviste.
-Tu ne réponds JAMAIS en texte libre. Tu retournes UNIQUEMENT un tableau JSON valide, sans aucun texte avant ou après, sans balises markdown.
-Format attendu (même pour une seule règle) :
-[
-  {
-    "mode": "euros" | "pct" | "coeff",
-    "valeur": number,
-    "charges": { "transport": number | null, "douane": number | null },
-    "condition": {
-      "champ": "prix" | "domaine" | "millesime" | null,
-      "operateur": "lt" | "lte" | "gt" | "gte" | "eq" | "contains" | null,
-      "valeur": string | number | null
-    },
-    "resume": "phrase courte et claire pour cette règle, en français, commençant par un verbe à l'infinitif"
-  }
-]
-Si quelque chose est ambigu, formule un resume qui sera montré à l'utilisateur pour confirmation. Sois précis sur les conditions (seuils, domaines, etc.).`;
+      const systemPrompt = `[Contexte] Tu es un interpréteur strict d'instructions de calcul de marge pour cavistes. Transforme des consignes orales/textuelles en règles JSON exploitables par un algorithme.
+
+[Tâche] Convertis cette instruction en JSON avec :
+- mode (str) : "coeff" ou "marge" ou "prix_fixe".
+- valeur (float) : Valeur du coefficient, de la marge (en %), ou du prix fixe.
+- charges (float ou null) : Pourcentage de charges à ajouter (ex: 10 pour 10%).
+- condition (str ou null) : Règle de filtrage (ex: "prix_ht < 6").
+- résumé (str) : Description claire pour l'utilisateur.
+
+[Format de sortie]
+{"règles": [{"mode": "str", "valeur": "float", "charges": "float ou null", "condition": "str ou null", "résumé": "str"}]}
+
+[Règles]
+- "coeff X" → mode: "coeff", valeur: X.
+- "marge X%" → mode: "marge", valeur: X.
+- "prix fixe X€" → mode: "prix_fixe", valeur: X.
+- Si plusieurs règles : trie-les par ordre de priorité (conditions spécifiques d'abord).
+- Gère les plages : "< 6€ coeff 2, >= 6€ coeff 3" → 2 règles avec conditions.
+
+[Exemples]
+Entrée : "coeff 3 sur tout"
+Sortie : {"règles": [{"mode": "coeff", "valeur": 3.0, "charges": null, "condition": null, "résumé": "Coefficient 3 appliqué à tous les vins"}]}
+
+Entrée : "< 6€ coeff 2, >= 6€ coeff 3"
+Sortie : {"règles": [{"mode": "coeff", "valeur": 2.0, "charges": null, "condition": "prix_ht < 6", "résumé": "Coefficient 2 pour les vins < 6€ HT"}, {"mode": "coeff", "valeur": 3.0, "charges": null, "condition": "prix_ht >= 6", "résumé": "Coefficient 3 pour les vins >= 6€ HT"}]}
+
+[Instruction finale] Réponds uniquement avec le JSON valide. Aucune explication.`;
 
       const userMsg = `${_cuvees.length} cuvées. Exemples :
 ${sample}
@@ -1281,8 +1365,9 @@ Instructions : "${text}"`;
         method: 'POST',
         headers: await authHeaders(),
         body: JSON.stringify({
-          model: 'mistral-small-latest',
+          model: 'devstral-medium-latest',
           max_tokens: 600,
+          temperature: 0.0,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userMsg }
@@ -1301,12 +1386,12 @@ Instructions : "${text}"`;
       let parsed;
       try { parsed = JSON.parse(raw); }
       catch(pe) {
-        // Tente d'extraire un tableau JSON depuis la réponse
-        const m = raw.match(/\[.*\]/s);
+        // Tente d'extraire un JSON depuis la réponse
+        const m = raw.match(/\{.*\}/s) || raw.match(/\[.*\]/s);
         if (m) parsed = JSON.parse(m[0]);
         else throw new Error('JSON invalide : ' + raw.slice(0, 100));
       }
-      const regles = Array.isArray(parsed) ? parsed : [parsed];
+      const regles = _normalizeRegles(parsed);
       // Valide chaque règle
       regles.forEach(r => {
         if (!r.mode) r.mode = 'coeff';
@@ -1371,8 +1456,8 @@ Instructions : "${text}"`;
     if (!rcv) return;
     // Résumé basé sur les règles appliquées
     if (_appliedRegles && _appliedRegles.length) {
-      const opLabel = { lt:'<', lte:'≤', gt:'>', gte:'≥', eq:'=', contains:'contient' };
-      const modeLabel = { euros:'Marge', pct:'Taux', coeff:'Coeff.' };
+      const opLabel = { lt:'<', lte:'≤', gt:'>', gte:'≥', eq:'=', neq:'≠', contains:'contient' };
+      const modeLabel = { euros:'Marge', pct:'Taux', coeff:'Coeff.', marge:'Marge %', prix_fixe:'Prix fixe' };
       const parts = _appliedRegles.map(r => {
         let txt = (modeLabel[r.mode] || r.mode) + ' ' + fmt(r.valeur) + (r.mode === 'pct' ? ' %' : r.mode === 'coeff' ? '×' : ' €');
         if (r.condition?.champ) {
@@ -1403,29 +1488,40 @@ Instructions : "${text}"`;
         `${c.domaine} / ${c.cuvee} / ${c.millesime} / ${c.prix}€`
       ).join('\n');
 
-      const systemPrompt = `Tu es un assistant JSON-only qui interprète des instructions de calcul de marge pour un caviste.
-Tu ne réponds JAMAIS en texte libre. Tu retournes UNIQUEMENT un tableau JSON valide, sans aucun texte avant ou après, sans balises markdown.
-Format attendu (même pour une seule règle) :
-[
-  {
-    "mode": "euros" | "pct" | "coeff",
-    "valeur": number,
-    "charges": { "transport": number | null, "douane": number | null },
-    "condition": {
-      "champ": "prix" | "domaine" | "millesime" | null,
-      "operateur": "lt" | "lte" | "gt" | "gte" | "eq" | "contains" | null,
-      "valeur": string | number | null
-    },
-    "resume": "phrase courte pour cette règle en français"
-  }
-]
-Règles :
-- "mode"/"valeur" = marge de vente uniquement
-- "charges" = frais extra, null si non mentionné
-- Si aucune condition : champ/operateur/valeur = null
-Exemples :
-- "coeff 3 sur tout" → [{mode:"coeff",valeur:3,charges:{transport:null,douane:null},condition:{champ:null,operateur:null,valeur:null},resume:"Coefficient ×3 sur toutes les bouteilles"}]
-- "< 6€ coeff 2, >= 6€ coeff 3" → [{mode:"coeff",valeur:2,condition:{champ:"prix",operateur:"lt",valeur:6},...}, {mode:"coeff",valeur:3,condition:{champ:"prix",operateur:"gte",valeur:6},...}]`;
+      const systemPrompt = `[Contexte] Tu es un interpréteur strict d'instructions de calcul de marge pour cavistes. Transforme des consignes orales/textuelles en règles JSON exploitables par un algorithme.
+
+[Tâche] Convertis cette instruction en JSON avec :
+- mode (str) : "coeff" ou "marge" ou "prix_fixe".
+- valeur (float) : Valeur du coefficient, de la marge (en %), ou du prix fixe.
+- charges (float ou null) : Pourcentage de charges à ajouter (ex: 10 pour 10%).
+- condition (str ou null) : Règle de filtrage (ex: "prix_ht < 6").
+- résumé (str) : Description claire pour l'utilisateur.
+
+[Format de sortie]
+{"règles": [{"mode": "str", "valeur": "float", "charges": "float ou null", "condition": "str ou null", "résumé": "str"}]}
+
+[Règles]
+- "coeff X" → mode: "coeff", valeur: X.
+- "marge X%" → mode: "marge", valeur: X.
+- "prix fixe X€" → mode: "prix_fixe", valeur: X.
+- Si plusieurs règles : trie-les par ordre de priorité (conditions spécifiques d'abord).
+- Gère les plages : "< 6€ coeff 2, >= 6€ coeff 3" → 2 règles avec conditions.
+
+[Exemples]
+Entrée : "coeff 3 sur tout"
+Sortie : {"règles": [{"mode": "coeff", "valeur": 3.0, "charges": null, "condition": null, "résumé": "Coefficient 3 appliqué à tous les vins"}]}
+
+Entrée : "< 6€ coeff 2, >= 6€ coeff 3"
+Sortie : {"règles": [{"mode": "coeff", "valeur": 2.0, "charges": null, "condition": "prix_ht < 6", "résumé": "Coefficient 2 pour les vins < 6€ HT"}, {"mode": "coeff", "valeur": 3.0, "charges": null, "condition": "prix_ht >= 6", "résumé": "Coefficient 3 pour les vins >= 6€ HT"}]}
+
+[Exemples supplémentaires]
+Entrée : "30% de marge sauf pour les Bordeaux où on fait coeff 2.5"
+Sortie : {"règles": [{"mode": "marge", "valeur": 30.0, "charges": null, "condition": "appellation != 'Bordeaux'", "résumé": "Marge de 30% (sauf Bordeaux)"}, {"mode": "coeff", "valeur": 2.5, "charges": null, "condition": "appellation == 'Bordeaux'", "résumé": "Coefficient 2.5 pour les Bordeaux"}]}
+
+Entrée : "10€ de marge + 5% de charges sur les vins > 20€"
+Sortie : {"règles": [{"mode": "prix_fixe", "valeur": 10.0, "charges": 5.0, "condition": "prix_ht > 20", "résumé": "Marge fixe de 10€ + 5% de charges pour les vins > 20€ HT"}]}
+
+[Instruction finale] Réponds uniquement avec le JSON valide. Aucune explication.`;
 
       const userMsg = `${_cuvees.length} cuvées. Exemples :
 ${sample}
@@ -1436,8 +1532,9 @@ Instructions : "${text}"`;
         method: 'POST',
         headers: await authHeaders(),
         body: JSON.stringify({
-          model: 'mistral-small-latest',
+          model: 'devstral-medium-latest',
           max_tokens: 500,
+          temperature: 0.0,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userMsg }
@@ -1446,10 +1543,16 @@ Instructions : "${text}"`;
       });
 
       const data = await response.json();
-      const raw = data.choices[0].message.content.trim().replace(/^```json\s*/i, '').replace(/```\s*$/i, '');
-      let parsed = JSON.parse(raw);
-      // Normalise : accepte objet unique ou tableau
-      const regles = Array.isArray(parsed) ? parsed : [parsed];
+      const raw = data.choices[0].message.content.trim()
+        .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+      let parsed;
+      try { parsed = JSON.parse(raw); }
+      catch(pe) {
+        const m = raw.match(/\{.*\}/s) || raw.match(/\[.*\]/s);
+        if (m) parsed = JSON.parse(m[0]);
+        else throw new Error('JSON invalide : ' + raw.slice(0, 100));
+      }
+      const regles = _normalizeRegles(parsed);
 
       // Stocke les règles pour applyAll
       _appliedRegles = regles;

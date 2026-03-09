@@ -55,11 +55,13 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'model and messages required' });
     }
 
-    const payload = JSON.stringify({
+    const payloadObj = {
       model: body.model,
       max_tokens: body.max_tokens || 1000,
       messages: body.messages
-    });
+    };
+    if (body.temperature !== undefined) payloadObj.temperature = body.temperature;
+    const payload = JSON.stringify(payloadObj);
     const hdrs = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
