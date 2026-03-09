@@ -64,7 +64,7 @@ Pour chaque vin, détermine :
     method: 'POST',
     headers: await authHeaders(),
     body: JSON.stringify({
-      model: 'devstral-medium-latest',
+      model: 'pixtral-large-latest',  // Vision model requis pour les images
       max_tokens: 8000,
       temperature: 0.1,
       messages: [{ role: 'user', content }]
