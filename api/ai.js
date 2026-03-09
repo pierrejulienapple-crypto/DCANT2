@@ -63,7 +63,7 @@ export default async function handler(req, res) {
       max_tokens: body.max_tokens || 1000,
       messages: body.messages
     };
-    if (body.temperature !== undefined) payloadObj.temperature = body.temperature;
+    payloadObj.temperature = body.temperature !== undefined ? body.temperature : 0.1;
     const payload = JSON.stringify(payloadObj);
     const hdrs = {
       'Content-Type': 'application/json',
