@@ -43,9 +43,9 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 
-  const apiKey = process.env.ANTHROPIC_KEY;
+  const apiKey = process.env.MISTRAL_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'ANTHROPIC_KEY not configured' });
+    return res.status(500).json({ error: 'MISTRAL_KEY not configured' });
   }
 
   try {
@@ -58,23 +58,21 @@ export default async function handler(req, res) {
     const payload = JSON.stringify({
       model: body.model,
       max_tokens: body.max_tokens || 1000,
-      ...(body.system ? { system: body.system } : {}),
       messages: body.messages
     });
     const hdrs = {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01'
+      'Authorization': `Bearer ${apiKey}`
     };
 
-    // Retry on 529 (overloaded) up to 5 times with longer backoff
+    // Retry on 429 (rate limit) up to 3 times
     let response, data;
-    for (let attempt = 0; attempt < 5; attempt++) {
-      response = await fetch('https://api.anthropic.com/v1/messages', {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      response = await fetch('https://api.mistral.ai/v1/chat/completions', {
         method: 'POST', headers: hdrs, body: payload
       });
-      if (response.status !== 529) break;
-      const wait = (attempt + 1) * 3000; // 3s, 6s, 9s, 12s, 15s
+      if (response.status !== 429) break;
+      const wait = (attempt + 1) * 2000; // 2s, 4s, 6s
       await new Promise(r => setTimeout(r, wait));
     }
 

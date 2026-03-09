@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// DCANT — Appel Claude API via proxy /api/ai
+// DCANT — Appel Mistral API via proxy /api/ai
 // ═══════════════════════════════════════════
 
 async function callClaudeAPI(images, corrections, options) {
@@ -72,10 +72,10 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte ni markdown :
 
 Max 100 cuvées. Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin détecté dans ce document."}`;
 
-  // Construit les content blocks : une image par page + le prompt texte
+  // Construit les content blocks : une image par page + le prompt texte (format OpenAI/Mistral)
   const content = images.map(img => ({
-    type: 'image',
-    source: { type: 'base64', media_type: img.media_type, data: img.base64 }
+    type: 'image_url',
+    image_url: { url: `data:${img.media_type};base64,${img.base64}` }
   }));
   content.push({ type: 'text', text: prompt });
 
@@ -83,7 +83,7 @@ Max 100 cuvées. Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin d
     method: 'POST',
     headers: await authHeaders(),
     body: JSON.stringify({
-      model: 'claude-opus-4-5',
+      model: 'pixtral-large-latest',
       max_tokens: 8000,
       messages: [{ role: 'user', content }]
     })
@@ -106,10 +106,10 @@ Max 100 cuvées. Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin d
   }
 
   const data = await response.json();
-  if (!data.content || !data.content[0]) {
+  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
     throw new Error('Réponse API vide ou invalide');
   }
-  const text = data.content[0].text.trim();
+  const text = data.choices[0].message.content.trim();
   const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
   const parsed = JSON.parse(clean);
   if (!parsed.cuvees || parsed.cuvees.length === 0) {
