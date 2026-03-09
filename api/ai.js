@@ -70,14 +70,14 @@ export default async function handler(req, res) {
       'Authorization': `Bearer ${apiKey}`
     };
 
-    // Retry on 429 (rate limit) up to 3 times
+    // Retry on 429 (rate limit) up to 5 times with exponential backoff
     let response, data;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 5; attempt++) {
       response = await fetch('https://api.mistral.ai/v1/chat/completions', {
         method: 'POST', headers: hdrs, body: payload
       });
       if (response.status !== 429) break;
-      const wait = (attempt + 1) * 2000; // 2s, 4s, 6s
+      const wait = Math.min((attempt + 1) * 5000, 30000); // 5s, 10s, 15s, 20s, 25s
       await new Promise(r => setTimeout(r, wait));
     }
 
