@@ -80,6 +80,7 @@ async function callMistral(body) {
     temperature: body.temperature !== undefined ? body.temperature : 0.1,
     messages: body.messages
   };
+  if (body.response_format) payload.response_format = body.response_format;
 
   let response;
   const delays = [5000, 15000, 30000, 60000, 60000];
@@ -108,9 +109,13 @@ router.post('/', requireAuth, async (req, res) => {
     }
 
     const model = req.body.model || 'devstral-medium-latest';
+    // Log la taille du body et le modèle
+    const bodySize = JSON.stringify(req.body).length;
+    console.log(`[AI] model=${model}, body=${(bodySize/1024).toFixed(0)}KB`);
     const result = model.startsWith('claude')
       ? await callAnthropic(req.body)
       : await callMistral(req.body);
+    console.log(`[AI] result status=${result.status}, size=${(result.raw ? result.body.length : JSON.stringify(result.body).length)/1024|0}KB`);
 
     if (result.raw) {
       return res.status(result.status).type('json').send(result.body);

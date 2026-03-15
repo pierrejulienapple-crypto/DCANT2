@@ -104,6 +104,7 @@ FORMAT (JSON uniquement, pas d'explication) :
       model: 'devstral-medium-latest',
       max_tokens: 8000,
       temperature: 0.1,
+      response_format: { type: 'json_object' },
       messages: [{ role: 'user', content: analysePrompt }]
     })
   });
@@ -121,7 +122,14 @@ FORMAT (JSON uniquement, pas d'explication) :
   }
   const text = analyseData.choices[0].message.content.trim();
   console.log('[DCANT] Devstral brut:', text.substring(0, 300));
-  const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+  // Extraire le JSON même si Devstral ajoute du texte autour
+  let clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+  // Si la réponse commence par du texte, chercher le premier {
+  const jsonStart = clean.indexOf('{');
+  const jsonEnd = clean.lastIndexOf('}');
+  if (jsonStart > 0 && jsonEnd > jsonStart) {
+    clean = clean.substring(jsonStart, jsonEnd + 1);
+  }
   let parsed = JSON.parse(clean);
 
   // ── Normalisation : {vins} → {cuvees} ──
