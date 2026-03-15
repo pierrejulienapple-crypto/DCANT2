@@ -33,7 +33,9 @@ const Appellations = (() => {
       _ready = true;
       console.log('[Appellations] ' + _list.length + ' appellations chargées');
     } catch (e) {
-      console.error('[Appellations] Erreur chargement:', e);
+      console.error('[Appellations] Erreur chargement:', e.message || e);
+      console.error('[Appellations] URL appelée:', DCANT_CONFIG.apiUrl + '/api/appellations');
+      console.error('[Appellations] Stack:', e.stack || 'N/A');
       _list = [];
       _ready = true; // on continue sans, mode dégradé
     }
