@@ -1,5 +1,7 @@
 // ═══════════════════════════════════════════
-// DCANT — Appel Mistral API via proxy /api/ai
+// DCANT — Pipeline IA : Pixtral OCR → Devstral Analyse
+// Étape 1 : Pixtral extrait le texte brut du document (vision)
+// Étape 2 : Devstral analyse le texte et produit le JSON structuré
 // ═══════════════════════════════════════════
 
 async function callClaudeAPI(images, corrections, options) {
@@ -7,13 +9,70 @@ async function callClaudeAPI(images, corrections, options) {
   // options = { isPhoto: bool } — indique si c'est une photo prise au téléphone
   options = options || {};
 
+  // ════════════════════════════════════════
+  // ÉTAPE 1 — Pixtral : OCR (extraction texte brut)
+  // ════════════════════════════════════════
+
+  const photoHint = options.isPhoto
+    ? ' ATTENTION : photo prise au téléphone (flou, distorsion, ombres possibles). Lis ligne par ligne avec soin.'
+    : '';
+
+  const ocrPrompt = `Tu es un OCR expert. Extrais TOUT le texte visible de ce document (${images.length} page${images.length > 1 ? 's' : ''}).${photoHint}
+
+Règles :
+- Conserve la structure du document (colonnes, tableaux, en-têtes, pieds de page).
+- Pour les tableaux, sépare les colonnes par " | " et les lignes par un retour à la ligne.
+- Inclus TOUS les nombres, prix, pourcentages, dates, références.
+- Si un texte est flou ou incertain, écris-le quand même suivi de [?].
+- N'ajoute aucune interprétation, aucun commentaire. Uniquement le texte extrait.`;
+
+  const ocrContent = images.map(img => ({
+    type: 'image_url',
+    image_url: { url: `data:${img.media_type};base64,${img.base64}` }
+  }));
+  ocrContent.push({ type: 'text', text: ocrPrompt });
+
+  console.log('[DCANT] Étape 1/2 — Pixtral OCR...');
+
+  const ocrResponse = await fetch(DCANT_CONFIG.apiUrl + '/api/ai', {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({
+      model: 'pixtral-large-latest',
+      max_tokens: 8000,
+      temperature: 0,
+      messages: [{ role: 'user', content: ocrContent }]
+    })
+  });
+
+  if (!ocrResponse.ok) {
+    const detail = await ocrResponse.text();
+    console.error('[API] OCR HTTP', ocrResponse.status, detail);
+    if (ocrResponse.status === 401) {
+      let reason = '';
+      try { const j = JSON.parse(detail); reason = j.reason || j.error || j.message || detail.substring(0, 100); } catch(e) { reason = detail.substring(0, 100); }
+      throw new Error('Erreur auth (401): ' + reason);
+    }
+    throw new Error('Erreur OCR ' + ocrResponse.status + ': ' + detail.substring(0, 200));
+  }
+
+  const ocrData = await ocrResponse.json();
+  if (!ocrData.choices || !ocrData.choices[0] || !ocrData.choices[0].message) {
+    throw new Error('Réponse OCR vide ou invalide');
+  }
+  const extractedText = ocrData.choices[0].message.content.trim();
+  console.log('[DCANT] OCR terminé:', extractedText.length, 'caractères');
+
+  // ════════════════════════════════════════
+  // ÉTAPE 2 — Devstral : Analyse structurée
+  // ════════════════════════════════════════
+
   let learningContext = '';
   if (corrections && corrections.length > 0) {
     learningContext = `\n\nCorrections passées (apprends de ces erreurs) :\n` +
       corrections.map(c => `- "${c.original}" corrigé en "${c.corrected}" (champ: ${c.field})`).join('\n');
   }
 
-  // Référentiel d'appellations officielles pour le matching IA (toutes — FR + Europe)
   let appellationContext = '';
   if (typeof Appellations !== 'undefined' && Appellations.isReady()) {
     const names = Appellations.getNames();
@@ -25,12 +84,12 @@ async function callClaudeAPI(images, corrections, options) {
     }
   }
 
-  // Instructions supplémentaires pour les photos de documents
-  const photoContext = options.isPhoto ? `\nATTENTION — PHOTO DE DOCUMENT : image prise au téléphone (flou, distorsion, ombres possibles). Identifie la structure du document, lis ligne par ligne, privilégie la quantité d'extraction même avec des scores bas.` : '';
+  const analysePrompt = `[Contexte] Tu es un expert en analyse de documents viticoles, spécialisé dans l'extraction de données structurées à partir de textes de factures, catalogues ou listes de vins. Tu connais les appellations officielles françaises et internationales.
 
-  const prompt = `[Contexte] Tu es un expert en analyse de documents viticoles, spécialisé dans l'extraction de données structurées à partir d'images ou de textes de factures, catalogues ou listes de vins. Tu connais les appellations officielles françaises et internationales.
+[Document extrait par OCR]
+${extractedText}
 
-[Tâche] Analyse ce document (${images.length} page${images.length > 1 ? 's' : ''}) et extrais **tous les vins** sous forme de JSON.
+[Tâche] Analyse ce texte et extrais **tous les vins** sous forme de JSON.
 Pour chaque vin, détermine :
 - domaine (str) : Nom du domaine/producteur.
 - cuvée (str ou null) : Nom de la cuvée si présent.
@@ -49,49 +108,34 @@ Pour chaque vin, détermine :
 - Si un champ est illisible : mets null et ajoute un warning dans metadata.warnings.
 - Max 100 vins.
 - Retourne TOUJOURS le JSON, même si tu n'es pas sûr. Mets des scores bas si nécessaire.
-- Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin détecté dans ce document."}${photoContext}${learningContext}${appellationContext}
+- Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin détecté dans ce document."}${learningContext}${appellationContext}
 
 [Instruction finale] Réponds uniquement avec le JSON valide. Aucune explication.`;
 
-  // Construit les content blocks : une image par page + le prompt texte (format OpenAI/Mistral)
-  const content = images.map(img => ({
-    type: 'image_url',
-    image_url: { url: `data:${img.media_type};base64,${img.base64}` }
-  }));
-  content.push({ type: 'text', text: prompt });
+  console.log('[DCANT] Étape 2/2 — Devstral analyse...');
 
-  const response = await fetch(DCANT_CONFIG.apiUrl + '/api/ai', {
+  const analyseResponse = await fetch(DCANT_CONFIG.apiUrl + '/api/ai', {
     method: 'POST',
     headers: await authHeaders(),
     body: JSON.stringify({
-      model: 'pixtral-large-latest',  // Mistral Pixtral (vision) — routé automatiquement par le proxy
+      model: 'devstral-medium-latest',
       max_tokens: 8000,
       temperature: 0.1,
-      messages: [{ role: 'user', content }]
+      messages: [{ role: 'user', content: analysePrompt }]
     })
   });
 
-  if (!response.ok) {
-    const detail = await response.text();
-    console.error('[API] HTTP', response.status, detail);
-    if (response.status === 401) {
-      let reason = '';
-      try {
-        const j = JSON.parse(detail);
-        reason = j.reason || j.error || j.message || detail.substring(0, 100);
-      } catch(e) {
-        reason = detail.substring(0, 100);
-      }
-      throw new Error('Erreur auth (401): ' + reason);
-    }
-    throw new Error('Erreur API ' + response.status + ': ' + detail.substring(0, 200));
+  if (!analyseResponse.ok) {
+    const detail = await analyseResponse.text();
+    console.error('[API] Analyse HTTP', analyseResponse.status, detail);
+    throw new Error('Erreur analyse ' + analyseResponse.status + ': ' + detail.substring(0, 200));
   }
 
-  const data = await response.json();
-  if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-    throw new Error('Réponse API vide ou invalide');
+  const analyseData = await analyseResponse.json();
+  if (!analyseData.choices || !analyseData.choices[0] || !analyseData.choices[0].message) {
+    throw new Error('Réponse analyse vide ou invalide');
   }
-  const text = data.choices[0].message.content.trim();
+  const text = analyseData.choices[0].message.content.trim();
   const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
   let parsed = JSON.parse(clean);
 

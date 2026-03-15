@@ -86,11 +86,11 @@ const ImportUpload = (() => {
     const images = [];
     for (let i = 1; i <= numPages; i++) {
       const page = await pdf.getPage(i);
-      let scale = 1.2;
+      let scale = 1.8;
       let vp = page.getViewport({ scale });
 
-      // Limite pixels pour perf + rate limit API vision
-      const maxPixels = 4000000;
+      // Limite pixels pour perf canvas
+      const maxPixels = 6000000;
       if (vp.width * vp.height > maxPixels) {
         scale *= Math.sqrt(maxPixels / (vp.width * vp.height));
         vp = page.getViewport({ scale });
@@ -100,7 +100,7 @@ const ImportUpload = (() => {
       c.width = Math.round(vp.width);
       c.height = Math.round(vp.height);
       await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
-      const dataUrl = c.toDataURL('image/jpeg', 0.7);
+      const dataUrl = c.toDataURL('image/jpeg', 0.85);
       const b64 = dataUrl.split(',')[1];
       if (b64 && b64.length > 1000) {
         images.push({ base64: b64, media_type: 'image/jpeg' });
@@ -137,16 +137,16 @@ const ImportUpload = (() => {
       img.onload = () => {
         let w = img.width, h = img.height;
 
-        // Limite pixels pour perf + rate limit API vision
-        const maxPixels = 4000000;
+        // Limite pixels pour perf canvas
+        const maxPixels = 6000000;
         if (w * h > maxPixels) {
           const ratio = Math.sqrt(maxPixels / (w * h));
           w = Math.round(w * ratio);
           h = Math.round(h * ratio);
         }
 
-        // Limite dimension max pour Pixtral (réduit les tokens image)
-        const MAX = 1600;
+        // Limite dimension max
+        const MAX = 2400;
         if (w > MAX || h > MAX) {
           const ratio = Math.min(MAX / w, MAX / h);
           w = Math.round(w * ratio);
@@ -164,7 +164,7 @@ const ImportUpload = (() => {
           console.log(`[DCANT] Photo enhanced: ${w}x${h}px`);
         }
 
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
         resolve(dataUrl.split(',')[1]);
         URL.revokeObjectURL(img.src);
       };
@@ -202,9 +202,8 @@ const ImportUpload = (() => {
       return [{ base64, media_type: 'image/jpeg' }];
     }
 
-    // Image desktop propre < 500KB → envoi brut sans traitement
-    // Au-delà, on passe par canvas pour redimensionner (rate limit Pixtral)
-    if (supportedRaw.includes(file.type) && file.size < 500 * 1024) {
+    // Image desktop propre < 5MB → envoi brut sans traitement
+    if (supportedRaw.includes(file.type) && file.size < 5 * 1024 * 1024) {
       const base64 = await fileToBase64Raw(file);
       return [{ base64, media_type: file.type }];
     }
