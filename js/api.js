@@ -2,11 +2,10 @@
 // DCANT — Pipeline IA : Pixtral OCR → Devstral Analyse
 // Étape 1 : Pixtral extrait le texte brut du document (vision)
 // Étape 2 : Devstral analyse le texte et produit le JSON structuré
+// Étape 3 : Matching appellations côté client (post-traitement)
 // ═══════════════════════════════════════════
 
 async function callClaudeAPI(images, corrections, options) {
-  // images = tableau de { base64, media_type }
-  // options = { isPhoto: bool } — indique si c'est une photo prise au téléphone
   options = options || {};
 
   // ════════════════════════════════════════
@@ -62,6 +61,7 @@ Règles :
   }
   const extractedText = ocrData.choices[0].message.content.trim();
   console.log('[DCANT] OCR terminé:', extractedText.length, 'caractères');
+  console.log('[DCANT] OCR extrait:', extractedText.substring(0, 300));
 
   // ════════════════════════════════════════
   // ÉTAPE 2 — Devstral : Analyse structurée
@@ -73,46 +73,29 @@ Règles :
       corrections.map(c => `- "${c.original}" corrigé en "${c.corrected}" (champ: ${c.field})`).join('\n');
   }
 
-  let appellationContext = '';
-  if (typeof Appellations !== 'undefined' && Appellations.isReady()) {
-    const names = Appellations.getNames();
-    if (names.length > 0) {
-      const namesStr = names.join(' | ');
-      appellationContext = `\n\nRÉFÉRENTIEL APPELLATIONS OFFICIELLES (${names.length} entrées) :\n` +
-        namesStr +
-        `\nUtilise TOUJOURS le nom exact de ce référentiel pour le champ "appellation". Ignore les préfixes (IGP, AOP, AOC, DOC, DOCG) et suffixes (Biologico, Bio, Superiore) pour le matching.`;
-    }
-  }
+  const analysePrompt = `Tu es un expert en documents viticoles. Voici un texte extrait par OCR d'une facture/catalogue de vins.
 
-  const analysePrompt = `[Contexte] Tu es un expert en analyse de documents viticoles, spécialisé dans l'extraction de données structurées à partir de textes de factures, catalogues ou listes de vins. Tu connais les appellations officielles françaises et internationales.
-
-[Document extrait par OCR]
+TEXTE DU DOCUMENT :
 ${extractedText}
 
-[Tâche] Analyse ce texte et extrais **tous les vins** sous forme de JSON.
-Pour chaque vin, détermine :
-- domaine (str) : Nom du domaine/producteur.
-- cuvée (str ou null) : Nom de la cuvée si présent.
-- appellation (str) : Doit matcher exactement une appellation du référentiel si fourni. Si ambiguïté, retourne la plus probable avec un score_confiance < 1.0. RÈGLE ABSOLUE : remplis ce champ pour CHAQUE vin. Cherche partout (en-tête, pied de page, colonne, mention globale). Si UNE SEULE appellation dans tout le document, applique-la à TOUS les vins.
-- millésime (int ou null) : Année de récolte.
-- prix_ht_unitaire (float) : Prix HT unitaire (convertis les virgules européennes en points : "15,50€" → 15.50). Si plusieurs colonnes de prix (qté, prix unit., total), prends le PRIX UNITAIRE HT. Si seul le TTC est présent, calcule HT avec TVA 20%. Si > 500€/bouteille, vérifie virgule décimale vs séparateur de milliers.
-- score_confiance (float) : [0.0-1.0] selon la clarté (1.0 = parfait, 0.5 = flou, 0.1 = incertain).
-- alternatives (array) : Liste de 1-3 appellations possibles si score_confiance < 0.8.
+TÂCHE : Extrais tous les vins en JSON. Pour chaque vin :
+- domaine (str) : producteur
+- cuvee (str ou null) : nom de cuvée
+- appellation (str) : appellation viticole (cherche partout : en-tête, colonnes, mentions globales)
+- millesime (int ou null) : année
+- prix_ht_unitaire (float) : prix HT unitaire. Virgule → point (15,50 → 15.50). Prends le prix UNITAIRE, pas le total ligne.
+- score_confiance (float 0-1) : certitude de lecture
 
-[Format de sortie]
-{"vins": [{"domaine": "str", "cuvee": "str ou null", "appellation": "str", "millesime": "int ou null", "prix_ht_unitaire": "float", "score_confiance": "float", "alternatives": ["str"]}], "metadata": {"pages_analysées": "int", "warnings": ["str"]}}
+RÈGLES :
+- Si une seule appellation dans le document → applique-la à tous les vins
+- TTC → divise par 1.20 pour obtenir HT
+- Retourne TOUJOURS du JSON même si incertain (mets score bas)
+- Si aucun vin : {"erreur": "Aucun vin détecté"}${learningContext}
 
-[Règles]
-- Gère les multi-colonnes et les tableaux (associe chaque ligne à un vin).
-- Pour les prix : priorité aux valeurs "€ HT" ou "HT".
-- Si un champ est illisible : mets null et ajoute un warning dans metadata.warnings.
-- Max 100 vins.
-- Retourne TOUJOURS le JSON, même si tu n'es pas sûr. Mets des scores bas si nécessaire.
-- Uniquement si AUCUN vin n'est trouvé : {"erreur": "Aucun vin détecté dans ce document."}${learningContext}${appellationContext}
+FORMAT (JSON uniquement, pas d'explication) :
+{"vins": [{"domaine": "", "cuvee": "", "appellation": "", "millesime": 0, "prix_ht_unitaire": 0.0, "score_confiance": 0.9}]}`;
 
-[Instruction finale] Réponds uniquement avec le JSON valide. Aucune explication.`;
-
-  console.log('[DCANT] Étape 2/2 — Devstral analyse...');
+  console.log('[DCANT] Étape 2/2 — Devstral analyse...', analysePrompt.length, 'chars');
 
   const analyseResponse = await fetch(DCANT_CONFIG.apiUrl + '/api/ai', {
     method: 'POST',
@@ -133,13 +116,15 @@ Pour chaque vin, détermine :
 
   const analyseData = await analyseResponse.json();
   if (!analyseData.choices || !analyseData.choices[0] || !analyseData.choices[0].message) {
+    console.error('[DCANT] Réponse Devstral brute:', JSON.stringify(analyseData).substring(0, 500));
     throw new Error('Réponse analyse vide ou invalide');
   }
   const text = analyseData.choices[0].message.content.trim();
+  console.log('[DCANT] Devstral brut:', text.substring(0, 300));
   const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
   let parsed = JSON.parse(clean);
 
-  // ── Normalisation : nouveau format {vins} → ancien format {cuvees} ──
+  // ── Normalisation : {vins} → {cuvees} ──
   if (parsed.vins && !parsed.cuvees) {
     parsed = {
       cuvees: parsed.vins.map(v => ({
@@ -152,12 +137,39 @@ Pour chaque vin, détermine :
           ? { domaine: v.score_confiance, cuvee: v.score_confiance, appellation: v.score_confiance, millesime: v.score_confiance, prix: v.score_confiance }
           : (v.confiance || { domaine: 0.9, cuvee: 0.9, appellation: 0.8, millesime: 0.7, prix: 0.9 }),
         alternatives: Array.isArray(v.alternatives) ? { appellation: v.alternatives } : (v.alternatives || {}),
-        appellation_match: v.appellation_match || (Array.isArray(v.alternatives) && v.alternatives.length ? 'unsure' : 'unknown'),
+        appellation_match: v.appellation_match || 'unknown',
         appellation_suggestions: v.alternatives || v.appellation_suggestions || []
       })),
       nb_total: parsed.vins.length,
       avertissement: parsed.metadata?.warnings?.join('. ') || null
     };
+  }
+
+  // ── Étape 3 : Matching appellations côté client ──
+  if (parsed.cuvees && typeof Appellations !== 'undefined' && Appellations.isReady()) {
+    const allNames = Appellations.getNames();
+    for (const c of parsed.cuvees) {
+      if (!c.appellation) continue;
+      const lower = c.appellation.toLowerCase()
+        .replace(/^(aop|aoc|igp|doc|docg|do)\s+/i, '')
+        .trim();
+      // Cherche un match exact
+      const exact = allNames.find(n => n.toLowerCase() === lower);
+      if (exact) {
+        c.appellation = exact;
+        c.appellation_match = 'exact';
+      } else {
+        // Cherche un match partiel (contient)
+        const partial = allNames.filter(n => n.toLowerCase().includes(lower) || lower.includes(n.toLowerCase()));
+        if (partial.length > 0) {
+          c.appellation = partial[0];
+          c.appellation_match = 'partial';
+          c.appellation_suggestions = partial.slice(0, 3);
+        } else {
+          c.appellation_match = 'unknown';
+        }
+      }
+    }
   }
 
   if (!parsed.cuvees || parsed.cuvees.length === 0) {
