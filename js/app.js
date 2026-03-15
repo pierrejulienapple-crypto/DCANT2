@@ -4,7 +4,6 @@
 // ═══════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', async () => {
-  _initSupabase();
   _initCookieConsent();
   PWA.init();
 
@@ -20,20 +19,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }, { passive: true });
 
+  // Gère le retour Google OAuth (?access_token=...)
+  await Auth.handleGoogleCallback();
+
+  // Listener auth (changements futurs)
   Auth.onAuthChange(async (user) => {
     App.user = user;
     await UI.updateAuthState(user);
     if (user && App.currentPage === 'historique') {
       await UI.renderHistorique();
     }
-    // Restaure l'import en cours si l'utilisateur vient de se connecter
     if (user && typeof Import !== 'undefined') {
       if (Import.restoreFromSession) Import.restoreFromSession();
       if (Import.updateAuthGate) Import.updateAuthGate();
     }
   });
 
-  const user = await Auth.getUser();
+  // Init auth (tente un refresh token au chargement)
+  const user = await Auth.init();
   App.user = user;
   await UI.updateAuthState(user);
 
@@ -49,18 +52,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 window.onhashchange = () => {
   if (location.hash === '#admin') UI.showAdmin();
 };
-
-function _initSupabase() {
-  try {
-    const { createClient } = window.supabase;
-    window.supabase = createClient(
-      DCANT_CONFIG.supabase.url,
-      DCANT_CONFIG.supabase.key
-    );
-  } catch (e) {
-    console.error('Supabase init failed:', e);
-  }
-}
 
 // ── Cookies & Clarity conditionnel (RGPD) ──
 function _initCookieConsent() {
@@ -110,8 +101,6 @@ function _loadClarity() {
 }
 
 // ── Benchmark + source wrapper (RGPD) ──
-// Wrap Import.saveAll pour injecter source='import' + partage_benchmark
-// sans modifier import.js
 (function() {
   var _origSaveAll;
   function _wrapSaveAll() {
@@ -149,9 +138,7 @@ const PWA = (() => {
   let _deferredPrompt = null;
 
   function init() {
-    // Déjà fermé ?
     if (localStorage.getItem('dc_pwa_dismissed')) return;
-    // Déjà en mode standalone (installée) ?
     if (window.matchMedia('(display-mode: standalone)').matches) return;
     if (window.navigator.standalone === true) return;
 
@@ -165,18 +152,16 @@ const PWA = (() => {
     if (!banner) return;
 
     if (isIOS) {
-      msg.textContent = 'Tapez Partager puis « Sur l\'écran d\'accueil ».';
+      msg.textContent = 'Tapez Partager puis \u00ab Sur l\u0027\u00e9cran d\u0027accueil \u00bb.';
       btn.textContent = 'Compris';
     } else {
-      msg.textContent = 'Ajoutez l\'app sur votre écran d\'accueil.';
+      msg.textContent = 'Ajoutez l\u0027app sur votre \u00e9cran d\u0027accueil.';
       btn.textContent = 'Installer';
     }
 
-    // Affiche après 2s
     setTimeout(() => banner.classList.remove('hidden'), 2000);
   }
 
-  // Android : intercepte le prompt natif
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     _deferredPrompt = e;

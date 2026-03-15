@@ -3,11 +3,8 @@
 // ═══════════════════════════════════════════
 
 const DCANT_CONFIG = {
-  version: '2.0.0',
-  supabase: {
-    url: 'https://cwpmlsmgckxooqtbwbpd.supabase.co',
-    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3cG1sc21nY2t4b29xdGJ3YnBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MDM4NjgsImV4cCI6MjA4ODI3OTg2OH0.h0Rcfc5ISk7MRYzcS9YL6Uy-8sdJxvYpTnpCZheGZFs'
-  },
+  version: '3.0.0',
+  apiUrl: 'http://54.38.26.223',
   clarity: {
     id: 'vm9i4i92ay'
   },

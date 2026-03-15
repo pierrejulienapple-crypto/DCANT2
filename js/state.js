@@ -57,24 +57,11 @@ function confirmCancel() {
   App.ui.confirmCallback = null;
 }
 
-async function authHeaders() {
+function authHeaders() {
   const h = { 'Content-Type': 'application/json' };
-  try {
-    let { data } = await window.supabase.auth.getSession();
-    // Si pas de session ou token expiré, forcer un refresh
-    if (!data?.session?.access_token ||
-        (data.session.expires_at && data.session.expires_at < Math.floor(Date.now() / 1000) + 30)) {
-      console.log('[AUTH] Session absente ou expirée, refresh...');
-      const refresh = await window.supabase.auth.refreshSession();
-      if (refresh.data?.session) data = refresh.data;
-    }
-    if (data?.session?.access_token) {
-      h['Authorization'] = 'Bearer ' + data.session.access_token;
-    } else {
-      console.warn('[AUTH] Pas de token — requête envoyée sans Authorization');
-    }
-  } catch (e) {
-    console.error('[AUTH] Erreur authHeaders:', e);
+  const token = Auth.getAccessToken();
+  if (token) {
+    h['Authorization'] = 'Bearer ' + token;
   }
   return h;
 }

@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════
 // DCANT — Benchmark (page dédiée)
 // Consentement + compteur participants
-// Sync Supabase (par compte, pas par appareil)
+// API propre (remplace les appels Supabase directs)
 // Cache session + affichage médianes marché
 // ═══════════════════════════════════════════
 
@@ -15,50 +15,43 @@ const Benchmark = (() => {
     var el = document.getElementById('benchmark-participants-count');
     if (!el) return;
     try {
-      var { data, error } = await window.supabase
-        .from('calculs')
-        .select('user_id')
-        .eq('partage_benchmark', true);
-      if (error) throw error;
-      var unique = new Set((data || []).map(function(r) { return r.user_id; }));
-      el.textContent = unique.size;
+      var resp = await fetch(DCANT_CONFIG.apiUrl + '/api/benchmark/count', {
+        headers: authHeaders()
+      });
+      if (!resp.ok) throw new Error();
+      var data = await resp.json();
+      el.textContent = data.count || 0;
     } catch(e) {
       el.textContent = '0';
     }
   }
 
-  // ── Sync Supabase → localStorage au chargement ──
-  // Synchronise le consentement depuis Supabase (cross-device).
-  // Si l'utilisateur a rejoint OU s'est retiré sur un autre appareil,
-  // on met à jour localStorage ici.
+  // ── Sync consentement depuis l'API (cross-device) ──
   async function _syncConsent() {
     if (!App.user) return;
     try {
-      var { data, error } = await window.supabase
-        .from('calculs')
-        .select('partage_benchmark')
-        .eq('user_id', App.user.id)
-        .eq('partage_benchmark', true)
-        .limit(1);
-      if (error) throw error;
-      if (data && data.length > 0) {
-        // L'utilisateur participe (rejoint sur un autre appareil)
+      var resp = await fetch(DCANT_CONFIG.apiUrl + '/api/benchmark/status', {
+        headers: authHeaders()
+      });
+      if (!resp.ok) return;
+      var data = await resp.json();
+      if (data.contributing) {
         localStorage.setItem('dcant_benchmark_consent', 'yes');
       } else if (localStorage.getItem('dcant_benchmark_consent') === 'yes') {
-        // localStorage dit "yes" mais Supabase dit non → retiré sur un autre appareil
         localStorage.setItem('dcant_benchmark_consent', 'no');
       }
     } catch(e) { /* silently fail */ }
   }
 
   // ── Met à jour partage_benchmark sur TOUS les calculs du user ──
-  async function _updateSupabaseConsent(consent) {
+  async function _updateConsent(consent) {
     if (!App.user) return;
     try {
-      await window.supabase
-        .from('calculs')
-        .update({ partage_benchmark: consent })
-        .eq('user_id', App.user.id);
+      await fetch(DCANT_CONFIG.apiUrl + '/api/benchmark/consent', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ consent: consent })
+      });
     } catch(e) { /* silently fail */ }
   }
 
@@ -121,40 +114,40 @@ const Benchmark = (() => {
     return html;
   }
 
-  // ── Consent UI — Rend le bloc consent dans un conteneur donné (top ou bottom) ──
+  // ── Consent UI ──
   function _renderBlock(block, suffix) {
     var consent = localStorage.getItem('dcant_benchmark_consent');
 
     if (consent === 'yes') {
       block.innerHTML =
         '<div class="bm-active">' +
-          '<div class="bm-badge">✓ Vous participez au réseau</div>' +
-          '<p>Vos imports de factures contribuent au benchmark anonymisé.</p>' +
+          '<div class="bm-badge">\u2713 Vous participez au r\u00e9seau</div>' +
+          '<p>Vos imports de factures contribuent au benchmark anonymis\u00e9.</p>' +
           '<button id="bm-leave-' + suffix + '" class="bm-leave-btn">Je me retire</button>' +
         '</div>';
       document.getElementById('bm-leave-' + suffix).addEventListener('click', function() {
         localStorage.setItem('dcant_benchmark_consent', 'no');
         _isContributor = false;
-        _updateSupabaseConsent(false);
+        _updateConsent(false);
         _render();
         _loadCount();
       });
 
     } else if (consent === 'no') {
       block.innerHTML =
-        '<p>Vous ne participez pas au benchmark. Vous pouvez rejoindre le réseau à tout moment.</p>' +
+        '<p>Vous ne participez pas au benchmark. Vous pouvez rejoindre le r\u00e9seau \u00e0 tout moment.</p>' +
         '<button id="bm-join-' + suffix + '" class="bm-join-btn">Je contribue</button>';
       document.getElementById('bm-join-' + suffix).addEventListener('click', function() {
         localStorage.setItem('dcant_benchmark_consent', 'yes');
         _isContributor = true;
-        _updateSupabaseConsent(true);
+        _updateConsent(true);
         _render();
         _loadCount();
       });
 
     } else {
       block.innerHTML =
-        '<p>Partagez vos prix d\'achat anonymement et accédez aux médianes du marché. Entièrement facultatif, modifiable à tout moment.</p>' +
+        '<p>Partagez vos prix d\'achat anonymement et acc\u00e9dez aux m\u00e9dianes du march\u00e9. Enti\u00e8rement facultatif, modifiable \u00e0 tout moment.</p>' +
         '<div class="bm-actions">' +
           '<button id="bm-join-' + suffix + '" class="bm-join-btn">Je contribue</button>' +
           '<button id="bm-decline-' + suffix + '" class="bm-decline-btn">Pas pour l\'instant</button>' +
@@ -162,7 +155,7 @@ const Benchmark = (() => {
       document.getElementById('bm-join-' + suffix).addEventListener('click', function() {
         localStorage.setItem('dcant_benchmark_consent', 'yes');
         _isContributor = true;
-        _updateSupabaseConsent(true);
+        _updateConsent(true);
         _render();
         _loadCount();
       });

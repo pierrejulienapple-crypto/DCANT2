@@ -1009,7 +1009,7 @@ const Export = (() => {
           reader.onloadend = async () => {
             const base64 = reader.result.split(',')[1];
             try {
-              const resp = await fetch('/api/whisper', {
+              const resp = await fetch(DCANT_CONFIG.apiUrl + '/api/whisper', {
                 method: 'POST',
                 headers: await authHeaders(),
                 body: JSON.stringify({ audio: base64, mime })

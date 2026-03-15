@@ -1113,7 +1113,7 @@ const Import = (() => {
 
     for (const c of toSave) await saveLine(c.id);
 
-    // Fusionne les doublons de domaine dans Supabase
+    // Fusionne les doublons de domaine en base
     await _mergeDuplicateDomains(App.user.id);
 
     toast(toSave.length + ' entrée' + (toSave.length > 1 ? 's' : '') + ' sauvegardée' + (toSave.length > 1 ? 's' : '') + ' !');
@@ -1128,10 +1128,8 @@ const Import = (() => {
 
   async function _mergeDuplicateDomains(userEmail) {
     try {
-      const { data: entries } = await window.supabase
-        .from('calculs')
-        .select('id, domaine')
-        .eq('user_id', userEmail);
+      // Récupère tous les calculs pour normaliser les domaines
+      const { data: entries } = await Storage.getHistorique(userEmail, 0, 1000);
 
       if (!entries || !entries.length) return;
 
@@ -1148,10 +1146,9 @@ const Import = (() => {
       for (const key of Object.keys(groups)) {
         const { canonical, ids } = groups[key];
         if (ids.length > 1 || groups[key].canonical !== entries.find(e => groups[key].ids.includes(e.id))?.domaine) {
-          await window.supabase
-            .from('calculs')
-            .update({ domaine: canonical })
-            .in('id', ids);
+          for (const id of ids) {
+            await Storage.updateCalcul(id, { domaine: canonical });
+          }
         }
       }
     } catch(e) { console.warn('merge domains:', e); }
@@ -1169,26 +1166,22 @@ const Import = (() => {
 
   async function _saveCorrection(original, corrected, field) {
     try {
-      await window.supabase.from('corrections').insert([{
-        user_id: App.user.id,
-        original,
-        corrected,
-        field,
-        created_at: new Date().toISOString()
-      }]);
+      await fetch(DCANT_CONFIG.apiUrl + '/api/corrections', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ original, corrected, field })
+      });
     } catch (e) {}
   }
 
   async function _getCorrections() {
     try {
       if (!App.user) return [];
-      const { data } = await window.supabase
-        .from('corrections')
-        .select('*')
-        .eq('user_id', App.user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      return data || [];
+      const resp = await fetch(DCANT_CONFIG.apiUrl + '/api/corrections', {
+        headers: authHeaders()
+      });
+      if (!resp.ok) return [];
+      return await resp.json();
     } catch (e) { return []; }
   }
 

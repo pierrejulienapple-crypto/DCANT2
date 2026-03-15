@@ -7,18 +7,30 @@ export const config = {
   }
 };
 
-async function verifySupabaseToken(token) {
-  const supabaseUrl = process.env.SUPABASE_URL || 'https://cwpmlsmgckxooqtbwbpd.supabase.co';
-  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3cG1sc21nY2t4b29xdGJ3YnBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MDM4NjgsImV4cCI6MjA4ODI3OTg2OH0.h0Rcfc5ISk7MRYzcS9YL6Uy-8sdJxvYpTnpCZheGZFs';
-  if (!supabaseKey) return true;
+import crypto from 'crypto';
 
-  const resp = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'apikey': supabaseKey
-    }
-  });
-  return resp.ok;
+function verifyJWT(token) {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return true; // pas de secret configuré = skip
+
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+
+    // Vérifier la signature HMAC-SHA256
+    const sig = crypto.createHmac('sha256', secret)
+      .update(parts[0] + '.' + parts[1])
+      .digest('base64url');
+    if (sig !== parts[2]) return false;
+
+    // Vérifier l'expiration
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return false;
+
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 // ── Routage Anthropic (modèles claude-*) ──
@@ -152,13 +164,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Auth check via Supabase API
+  // Auth check via JWT
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Authentication required' });
   }
-  const tokenValid = await verifySupabaseToken(auth.slice(7));
-  if (!tokenValid) {
+  if (!verifyJWT(auth.slice(7))) {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 

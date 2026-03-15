@@ -60,7 +60,7 @@ Pour chaque vin, détermine :
   }));
   content.push({ type: 'text', text: prompt });
 
-  const response = await fetch('/api/ai', {
+  const response = await fetch(DCANT_CONFIG.apiUrl + '/api/ai', {
     method: 'POST',
     headers: await authHeaders(),
     body: JSON.stringify({
