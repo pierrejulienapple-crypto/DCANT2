@@ -32,6 +32,8 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet());
 const ALLOWED_ORIGINS = [
   'https://dcant.vercel.app',
+  'https://dcant.fr',
+  'https://www.dcant.fr',
   'http://localhost:5500',
   'http://127.0.0.1:5500'
 ];
