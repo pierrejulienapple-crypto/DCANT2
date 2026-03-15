@@ -4,7 +4,7 @@
 
 const DCANT_CONFIG = {
   version: '3.0.0',
-  apiUrl: 'http://54.38.26.223',
+  apiUrl: 'https://api.dcant.fr',
   clarity: {
     id: 'vm9i4i92ay'
   },
