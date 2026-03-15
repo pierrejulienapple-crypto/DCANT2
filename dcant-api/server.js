@@ -30,8 +30,19 @@ const PORT = process.env.PORT || 3000;
 // ── Sécurité ──
 
 app.use(helmet());
+const ALLOWED_ORIGINS = [
+  'https://dcant.vercel.app',
+  'http://localhost:5500',
+  'http://127.0.0.1:5500'
+];
+if (process.env.FRONTEND_URL) ALLOWED_ORIGINS.push(process.env.FRONTEND_URL);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5500',
+  origin: (origin, cb) => {
+    // Autorise les requêtes sans origin (curl, health checks)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    cb(new Error('CORS not allowed'));
+  },
   credentials: true
 }));
 
