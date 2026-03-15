@@ -64,7 +64,7 @@ Pour chaque vin, détermine :
     method: 'POST',
     headers: await authHeaders(),
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',  // Anthropic Sonnet 4.6 (vision) — routé automatiquement par le proxy
+      model: 'pixtral-large-latest',  // Mistral Pixtral (vision) — routé automatiquement par le proxy
       max_tokens: 8000,
       temperature: 0.1,
       messages: [{ role: 'user', content }]
