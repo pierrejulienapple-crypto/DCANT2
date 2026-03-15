@@ -86,11 +86,11 @@ const ImportUpload = (() => {
     const images = [];
     for (let i = 1; i <= numPages; i++) {
       const page = await pdf.getPage(i);
-      let scale = 1.5;
+      let scale = 1.0;
       let vp = page.getViewport({ scale });
 
-      // Limite pixels pour perf + taille requête
-      const maxPixels = 5000000;
+      // Limite pixels (rate limit Pixtral = tokens image)
+      const maxPixels = 1500000;
       if (vp.width * vp.height > maxPixels) {
         scale *= Math.sqrt(maxPixels / (vp.width * vp.height));
         vp = page.getViewport({ scale });
@@ -100,7 +100,7 @@ const ImportUpload = (() => {
       c.width = Math.round(vp.width);
       c.height = Math.round(vp.height);
       await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
-      const dataUrl = c.toDataURL('image/jpeg', 0.85);
+      const dataUrl = c.toDataURL('image/jpeg', 0.65);
       const b64 = dataUrl.split(',')[1];
       if (b64 && b64.length > 1000) {
         images.push({ base64: b64, media_type: 'image/jpeg' });
@@ -137,16 +137,16 @@ const ImportUpload = (() => {
       img.onload = () => {
         let w = img.width, h = img.height;
 
-        // Limite pixels pour perf + taille requête
-        const maxPixels = 5000000;
+        // Limite pixels (rate limit Pixtral = tokens image)
+        const maxPixels = 1500000;
         if (w * h > maxPixels) {
           const ratio = Math.sqrt(maxPixels / (w * h));
           w = Math.round(w * ratio);
           h = Math.round(h * ratio);
         }
 
-        // Limite dimension max pour OCR
-        const MAX = 2000;
+        // Limite dimension max pour OCR Pixtral
+        const MAX = 1024;
         if (w > MAX || h > MAX) {
           const ratio = Math.min(MAX / w, MAX / h);
           w = Math.round(w * ratio);
@@ -164,7 +164,7 @@ const ImportUpload = (() => {
           console.log(`[DCANT] Photo enhanced: ${w}x${h}px`);
         }
 
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
         resolve(dataUrl.split(',')[1]);
         URL.revokeObjectURL(img.src);
       };

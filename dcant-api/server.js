@@ -26,6 +26,7 @@ import correctionsRoutes from './src/routes/corrections.js';
 import appellationsRoutes from './src/routes/appellations.js';
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // ── Sécurité ──
