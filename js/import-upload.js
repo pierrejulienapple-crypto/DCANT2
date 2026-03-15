@@ -86,11 +86,11 @@ const ImportUpload = (() => {
     const images = [];
     for (let i = 1; i <= numPages; i++) {
       const page = await pdf.getPage(i);
-      let scale = 1.8;
+      let scale = 1.5;
       let vp = page.getViewport({ scale });
 
-      // Limite pixels pour perf canvas
-      const maxPixels = 6000000;
+      // Limite pixels pour perf + taille requête
+      const maxPixels = 5000000;
       if (vp.width * vp.height > maxPixels) {
         scale *= Math.sqrt(maxPixels / (vp.width * vp.height));
         vp = page.getViewport({ scale });
@@ -137,16 +137,16 @@ const ImportUpload = (() => {
       img.onload = () => {
         let w = img.width, h = img.height;
 
-        // Limite pixels pour perf canvas
-        const maxPixels = 6000000;
+        // Limite pixels pour perf + taille requête
+        const maxPixels = 5000000;
         if (w * h > maxPixels) {
           const ratio = Math.sqrt(maxPixels / (w * h));
           w = Math.round(w * ratio);
           h = Math.round(h * ratio);
         }
 
-        // Limite dimension max
-        const MAX = 2400;
+        // Limite dimension max pour OCR
+        const MAX = 2000;
         if (w > MAX || h > MAX) {
           const ratio = Math.min(MAX / w, MAX / h);
           w = Math.round(w * ratio);

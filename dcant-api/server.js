@@ -51,7 +51,7 @@ app.use(cors({
 
 // ── Body parsers ──
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
 app.use(cookieParser());
 
 // ── Rate limiting ──
