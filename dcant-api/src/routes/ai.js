@@ -82,6 +82,7 @@ async function callMistral(body) {
   };
 
   let response;
+  const delays = [5000, 15000, 30000, 60000, 60000];
   for (let attempt = 0; attempt < 5; attempt++) {
     response = await fetch('https://api.mistral.ai/v1/chat/completions', {
       method: 'POST',
@@ -92,7 +93,8 @@ async function callMistral(body) {
       body: JSON.stringify(payload)
     });
     if (response.status !== 429) break;
-    await new Promise(r => setTimeout(r, (attempt + 1) * 5000));
+    console.log(`[AI] Mistral 429, retry ${attempt + 1}/5 in ${delays[attempt]/1000}s`);
+    await new Promise(r => setTimeout(r, delays[attempt]));
   }
 
   const data = await response.text();
